@@ -1,7 +1,7 @@
 # FURPS+ - Functional Requirement
 
 
-## RF03 - Gestão Documental 
+## RF02 - Gestão Documental 
 
 ## Descrição
 - O sistema deve permitir o *upload, download*, edição e listagem de documentos relacionados com um processo jurídico em que o utilizador, autenticado previamente, esteja envolvido.
@@ -66,3 +66,97 @@
 
 ## Tópicos adicionais
 - Aplicação utiliza uma base de dados relacional externa e não é permitido alojamento local de dados.
+
+
+<br><br><br><br>
+
+
+## RF03 - Organização de Sistema de Ficheiros 
+
+## Descrição
+- O sistema deve criar e gerir automaticamente uma estrutura de diretórios única para cada processo jurídico.
+- Cada processo é identificado por um *GUID*, garantindo isolamento, segurança e rastreabilidade dos dados.
+- Os ficheiros são armazenados fora da raiz web e apenas acedidos via *stream* controlado.
+
+---
+
+## Atores
+- Utilizador autenticado:
+    - **Advogado** tem controlo total sobre os diretórios dos seus processos.
+    - **Assistente Legal** pode aceder aos diretórios dos processos associados.
+    - **Cliente** pode apenas consultar ficheiros dos seus processos.
+
+---
+
+## *Inputs*
+- ***Criação de processo***: Pedido via API para criação de novo processo.
+
+---
+
+## *Outputs*
+- **Process ID (GUID)**: Identificador único do processo  
+- **Criação de diretórios**: Estrutura de ficheiros associada ao processo  
+- **Log**: Registo da criação no sistema de auditoria  
+
+---
+
+## Pré-condições
+- O utilizador deve estar autenticado.  
+- O pedido de criação de processo deve ser válido.  
+
+---
+
+## Pós-condições
+- É criada uma estrutura de diretórios única para o processo.  
+- O identificador (*GUID*) é devolvido ao cliente.  
+- A operação é registada em logs de auditoria.  
+
+---
+
+## Regras de negócio
+- Cada processo tem um diretório único identificado por GUID.  
+- Os diretórios não são acessíveis diretamente via HTTP.  
+- Os paths são sempre gerados internamente (nunca com input do utilizador).  
+- A estrutura deve ser criada de forma atómica (com rollback em caso de erro).  
+
+---
+
+## Non-Functional Requirements (FURPS+)
+
+### Segurança
+- Proteção contra *path traversal* usando `Path.Combine()` e `GetFullPath()`.  
+- Ficheiros armazenados fora da raiz web.  
+- Validação de ficheiros (extensão e *magic bytes*).  
+- Limite de tamanho de ficheiros: 20 MB.  
+- Headers seguros no download (*Content-Disposition* sanitizado).  
+- Controlo de acessos baseado em RBAC.  
+
+### Suportabilidade
+- Logs de criação de diretórios e acessos.  
+- Integração com sistema de auditoria (RF04).  
+
+### Desempenho
+- Operações de ficheiros realizadas de forma eficiente e segura.  
+
+---
+
+## Tópicos adicionais
+- Estrutura de diretórios:
+
+/processos/ <br>
+└── {processId-GUID}/<br>
+├── documentos/<br>
+│ ├── peticoes/<br>
+│ ├── contratos/<br>
+│ └── outros/<br>
+├── correspondencia/<br>
+└── temp/
+
+
+- Ficheiros cifrados com AES-256-GCM antes de armazenamento.  
+- Chaves geridas via Azure Key Vault.  
+- Permissões de sistema de ficheiros restritas ao backend.  
+- Integração com:
+    - **RF01 (RBAC)** – controlo de acessos  
+    - **RF02 (Gestão Documental)** – operações sobre ficheiros  
+    - **RF04 (Auditoria)** – registo de operações  
