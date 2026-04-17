@@ -1,5 +1,79 @@
 # FURPS+ - Functional Requirement
 
+## RF01 - Gestão de Perfis de Utilizador (RBAC)
+
+## Descrição
+- O sistema deve permitir a autenticação segura de utilizadores e garantir um controlo de acessos rigoroso, baseado em roles (Role-Based Access Control - RBAC).
+- A aplicação deve assegurar que cada perfil acede estritamente aos recursos e ações que lhe são permitidos, garantindo o isolamento da informação.
+
+---
+
+## Atores
+- Utilizador não autenticado:
+  - Pode efetuar a tentativa de autenticação (*login*).
+- Utilizador autenticado:
+  - **Advogado:** Possui permissões elevadas para gerir clientes, criar processos jurídicos e gerir a totalidade dos documentos associados aos seus casos.
+  - **Assistente Jurídico:** Possui permissões intermédias, podendo aceder aos processos e documentos dos advogados a que está alocado, para efeitos de consulta e organização de processo (sem permissões destrutivas).
+  - **Cliente:** Possui o nível de acesso mais restrito, podendo apenas consultar e descarregar documentos dos processos em que é explicitamente o cliente titular.
+
+---
+
+## *Inputs*
+- **Credenciais de acesso**: *Email* e *Password* submetidos no *endpoint* de autenticação.
+- **Token de Sessão**: *Token* (JWT) enviado através do cabeçalho (*Header* de *Authorization*) dos pedidos HTTP subsequentes.
+
+---
+
+## *Outputs*
+- **Autenticação com sucesso**: Emissão e devolução de um *Token* de Autenticação válido contendo as *claims* (role e ID do utilizador).
+- **Autenticação falhada**: Mensagem genérica de erro informando que as credenciais são inválidas.
+- **Autorização negada**: Resposta HTTP de erro do tipo *403 Forbidden* (se não tiver permissões para a ação) ou *401 Unauthorized* (se o token for inválido/expirado).
+
+---
+
+## Pré-condições
+- O utilizador deve estar previamente registado e ativo na base de dados relacional do sistema.
+- A base de dados e a Web API devem estar operacionais e conectadas.
+
+---
+
+## Pós-condições
+- O sistema estabelece uma sessão segura e identificada, permitindo ao utilizador invocar as ações permitidas para o seu *role*.
+- O evento de *login* (com sucesso ou falhado) é registado nos *logs* do sistema.
+
+---
+
+## Regras de negócio
+- O acesso do sistema obedece estritamente ao princípio do privilégio mínimo (*Principle of Least Privilege*).
+- O sistema não deve expor se a falha no *login* foi devido ao *email* inexistente ou à *password* incorreta (para evitar enumeração de contas).
+- Em caso de múltiplas tentativas de autenticação falhadas consecutivas, a conta do utilizador deve ser bloqueada temporariamente.
+
+---
+
+## Non-Functional Requirements (FURPS+)
+
+### Segurança (6 Security Pillars)
+
+| Pilar | Requisito de Segurança e Justificação | Referência ASVS |
+| :--- | :--- | :--- |
+| **1. Auth (Autenticação)** | **Hashing de Passwords:** As passwords devem ser protegidas com **Argon2id** ou **BCrypt**. *Justificação: Prevenir a exposição de credenciais em caso de fuga da base de dados.* | V2.4.1 |
+| **2. Access (Acesso)** | **Enforcement no Back-end:** O controlo de acesso (RBAC) deve ser verificado em cada pedido à API, independentemente do front-end. *Justificação: Mitigar Bypass de Autorização via manipulação de pedidos.* | V4.1.1 |
+| **3. Data (Dados)** | **Proteção de Tokens:** O segredo (Secret Key) do JWT deve ser armazenado num cofre de chaves. *Justificação: Garantir a integridade dos tokens e evitar a falsificação de identidades.* | V6.2.1 |
+| **4. Input (Entrada)** | **Sanitização de Credenciais:** Limitação de caracteres e sanitização de campos de login. *Justificação: Prevenir ataques de SQL/NoSQL Injection no processo de autenticação.* | V5.1.1 |
+| **5. 3rd Party (Terceiros)** | **Verificação de Vulnerabilidades (SCA):** Todas as bibliotecas NuGet de autenticação (ex: `System.IdentityModel.Tokens.Jwt`) devem ser monitorizadas via **GitHub Dependabot** ou `dotnet list package --vulnerable`. *Justificação: Garantir que a lógica de segurança não depende de componentes com vulnerabilidades conhecidas (CVEs).* | V14.2.1 |
+| **6. Logging (Registos)** | **Auditoria de Eventos de Acesso:** Devem ser registados sucessos e falhas de login, incluindo IP e timestamp. *Justificação: Permitir deteção de ataques de força bruta e suporte a análise forense.* | V7.1.1 |
+
+### Suportabilidade
+- Integração com o sistema de auditoria para manter *logs* detalhados de quem fez login, de onde, e a que horas.
+
+---
+
+## Tópicos adicionais
+- Integração obrigatória com comunicação cifrada em trânsito (HTTPS).
+- As definições de RBAC aqui parametrizadas são a base funcional para o controlo de acessos transversal, refletindo-se diretamente na "Organização de Sistema de Ficheiros" (RF03) e "Gestão Documental" (RF02).
+
+## 6 Pilares de Segurança
+
 
 ## RF02 - Gestão Documental 
 
@@ -10,7 +84,7 @@
 ## Atores
 - Utilizador autenticado:
     - **Advogado** pode executar todas as ações mencionadas.
-    - **Assistente Legal** pode executar todas as tarefas que não alterem os dados.
+    - **Assistente Jurídico** pode executar todas as tarefas que não alterem os dados.
     - **Cliente** pode consultar e descarregar todos os documentos dos casos que seja o cliente.
 
 ---
@@ -57,7 +131,7 @@
 - Todos os documentos armazenados no servidor devem ser cifrados para garantir a confidencialidade.
 - Um cliente só deve ter permissão para visualizar processos e documentos que lhe pertencem
 - Advogado deve ter acesso apenas aos dados dos seus clientes
-- Assistente Legal deve ter acesso apenas aos dados dos clientes do Advogado a que está atríbuído
+- Assistente Jurídico deve ter acesso apenas aos dados dos clientes do Advogado a que está atríbuído
 
 ### Suportabilidade
 - Logs de operações  
@@ -83,7 +157,7 @@
 ## Atores
 - Utilizador autenticado:
     - **Advogado** tem controlo total sobre os diretórios dos seus processos.
-    - **Assistente Legal** pode aceder aos diretórios dos processos associados.
+    - **Assistente Jurídico** pode aceder aos diretórios dos processos associados.
     - **Cliente** pode apenas consultar ficheiros dos seus processos.
 
 ---
