@@ -21,10 +21,14 @@ Alinhado com os conceitos de Domain-Driven Design (DDD), a lógica de negócio d
 
 ## Arquitetura do sistema
 
-A aplicação é materializada através de uma Web API (REST) desenvolvida em ecossistema .NET. 
-A persistência de dados será garantida por uma base de dados relacional (garantindo que não 
-são utilizadas bases de dados em memória). Um dos componentes críticos da arquitetura é a 
+A aplicação é materializada através de uma Web API (REST) com HTTPS. 
+O BackEnd vai ser desenvolvido em .NET, enquanto a persistência de dados será garantida por uma base de dados relacional (garantindo que não 
+são utilizadas bases de dados em memória) PostgreSQL.
+Relativamente ao KeyVault, vamos utilizar o HashiCorp Vault para a persistência de secrets.
+Um dos componentes críticos da arquitetura é a 
 interação direta do servidor com o sistema operativo, sendo responsável pela execução de 
 funcionalidades como a criação autónoma de estruturas de diretórios para cada novo processo 
 e a gestão de leitura/escrita de ficheiros físicos (PDF e DOCX).
+
+![architecture_diagram.svg](Architecture_Diagram.svg)
 
