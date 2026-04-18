@@ -7,7 +7,7 @@ The following table maps the grading criteria to the specific evidence and docum
 | Criteria | Weight | Requirements Addressed | Repository Reference | Key Highlights |
 | :--- | :--- | :--- | :--- | :--- |
 | **Organization & Language** | **5%** | Document Structure, Links, Grammar | [README.md](../../README.md) | Centralized repository with logical folder hierarchy; all components linked for easy navigation. |
-| **Analysis** | **10%** | System Overview, Domain Model, Architecture | [Analysis.md](./Analysis.md) | Full tech stack description and domain model identifying all major system components. |
+| **Analysis** | **10%** | System Overview, Domain Model, Architecture | [Analysis.md](../../Documentation/Analysis/Analysis.md) | Full tech stack description and domain model identifying all major system components. |
 | **Data Flow** | **15%** | Level 0 & 1 DFDs, Trust Boundaries |  | DFDs using standard notation; Level 2+ provided for complex logic; clear Trust Boundaries. |
 | **Threat ID** | **20%** | STRIDE Analysis, Abuse Cases |  | STRIDE-per-element analysis; detailed attack vectors and abuse cases for threat agents. |
 | **Risk Assessment** | **10%** | Methodology, Prioritisation |  | Quantified risk scoring (DREAD/CVSS) used to justify mitigation priority for identified threats. |
