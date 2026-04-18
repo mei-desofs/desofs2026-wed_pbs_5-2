@@ -234,3 +234,103 @@
     - **RF01 (RBAC)** – controlo de acessos  
     - **RF02 (Gestão Documental)** – operações sobre ficheiros  
     - **RF04 (Auditoria)** – registo de operações  
+
+
+<br><br><br><br>
+
+## RF04 - Auditoria de Acessos e Logging
+
+## Descrição
+- O sistema deve registar de forma persistente, cronológica e imutável todas as ações críticas realizadas no back-end para garantir a segurança do sistema.  
+- O objetivo é assegurar a rastreabilidade total das interações com dados sensíveis, incluindo acessos a documentos, operações sobre processos jurídicos e ações no sistema de ficheiros.
+
+---
+
+## Atores
+- Utilizador autenticado:
+  - **Advogado:** Pode consultar logs associados aos seus processos e ações sob sua responsabilidade.
+  - **Assistente Jurídico:** Pode consultar logs dos processos a que está associado, sem acesso a eventos administrativos ou globais.
+  - **Cliente:** Não possui acesso direto aos logs (apenas rastreabilidade indireta via sistema).
+- **Sistema (Automático):** Responsável pela geração autónoma dos registos durante a execução das operações.
+
+---
+
+## *Inputs*
+- **Metadados de Sessão:**
+  - Identificador do utilizador
+  - Role (Advogado, Assistente Jurídico, Cliente)
+  - Endereço IP
+
+- **Contexto da Operação:**
+  - Identificador do processo (*GUID*)
+  - Tipo de operação (CRUD, autenticação, acesso a ficheiros, etc.)
+  - Recursos afetados (documentos, diretórios, processos)
+
+- **Dados de Execução:**
+  - Resultado da operação (sucesso/erro)
+  - Código de estado HTTP
+
+---
+
+## *Outputs*
+- **Registos de Auditoria:**
+  - Persistência em base de dados relacional (obrigatório)
+  - Histórico completo e ordenado cronologicamente
+
+- **Logs de Segurança:**
+  - Tentativas de acesso não autorizado
+  - Falhas de autenticação
+  - Violações de regras de negócio
+
+---
+
+## Pré-condições
+- O utilizador deve estar autenticado (quando aplicável).
+- A base de dados relacional deve estar disponível e operacional.
+- O sistema de logging deve estar ativo e integrado com a API.
+
+---
+
+## Pós-condições
+- Cada ação relevante é registada antes da resposta ao cliente.
+- O log contém informação suficiente para auditoria e análise forense.
+- Os registos ficam disponíveis para consulta conforme permissões RBAC.
+
+---
+
+## Regras de Negócio
+- **Imutabilidade:** Logs não podem ser alterados nem eliminados.
+- **Confidencialidade:** Dados sensíveis não devem ser armazenados em texto plano.
+- **Privilégio Mínimo:**  
+  - Advogado → logs dos seus processos  
+  - Assistente Jurídico → logs dos processos atribuídos  
+  - Cliente → sem acesso direto  
+- **Rastreabilidade Total:** Todas as ações de RF01, RF02 e RF03 devem gerar logs.
+
+---
+
+## Non-Functional Requirements (FURPS+)
+
+### Segurança (6 Security Pillars)
+
+| Pilar            | Requisito de Segurança e Justificação                                                                 | Referência ASVS |
+|------------------|------------------------------------------------------------------------------------------------------|------------------|
+| **1. Autenticação** | Cada log deve estar associado a um utilizador autenticado (não-repúdio).     | V7.1.1           |
+| **2. Acesso**        | RBAC aplicado aos logs conforme RF01 (restrição por role e contexto de processo).                | V7.1.2           |
+| **3. Dados**         | Persistência em base de dados relacional com controlo de integridade e permissões restritas.     | V7.3.1           |
+| **4. Entrada**       | Sanitização de inputs antes de registo para prevenir log injection.                              | V5.3.4           |
+| **5. Terceiros**     | Monitorização de bibliotecas de logging e dependências externas.                                 | V14.2.1          |
+| **6. Registos**      | Uso de timestamps em UTC e correlação de eventos entre serviços.                                 | V7.1.3           |
+
+### Suportabilidade
+- Integração com ferramentas de monitorização e SIEM.
+- Capacidade de análise forense e correlação de eventos entre RF01, RF02 e RF03.
+- Registo de falhas do sistema operativo (ex: erros na criação de ficheiros ou diretórios).
+
+---
+
+## Tópicos adicionais
+- Integração direta com:
+  - **RF01 (RBAC)** – controlo de acesso aos logs  
+  - **RF02 (Gestão Documental)** – auditoria de operações sobre documentos  
+  - **RF03 (Sistema de Ficheiros)** – auditoria de operações no storage  
