@@ -189,7 +189,6 @@
 
 ## Regras de negócio
 - Cada processo tem um diretório único identificado por GUID.  
-- Os diretórios não são acessíveis diretamente via HTTP.  
 - Os paths são sempre gerados internamente (nunca com input do utilizador).  
 - A estrutura deve ser criada de forma atómica (com rollback em caso de erro).  
 
@@ -227,8 +226,7 @@
 └── temp/
 
 
-- Ficheiros cifrados com AES-256-GCM antes de armazenamento.  
-- Chaves geridas via Azure Key Vault.  
+- Chaves geridas via HashiCorp Vault.  
 - Permissões de sistema de ficheiros restritas ao backend.  
 - Integração com:
     - **RF01 (RBAC)** – controlo de acessos  
