@@ -4,6 +4,9 @@
 
 # Level 1 DataFlows
 
+## RF01 Gestão de Perfis de Utilizador (RBAC)
+![Lvl1_RF01](lvl1RF01.png)
+
 
 ## RF03 Organização de Sistema de Ficheiros
 
