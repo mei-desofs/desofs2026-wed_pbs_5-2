@@ -224,15 +224,15 @@ Aplica-se o modelo STRIDE a cada elemento do DFD para identificar vetores de ata
 
 | ID | Elemento | Elemento DFD | STRIDE | Ameaça Identificada |
 |----|----------|--------------|--------|---------------------|
-| P4.1 | Captura de Evento | Processo | S / T / R | Interceção ou forja de eventos antes do registo |
-| P4.2 | Tratamento do Evento | Processo | T / R / I | Injeção de caracteres maliciosos ou fuga de dados sensíveis |
-| DS4.1 | Persistência (PostgreSQL) | Data Store | T / R / I | Modificação ou eliminação de registos de auditoria |
-| DS4.2 | Atores do Sistema | Entidade Externa | S / D / T | Falsificação de Identidade e sobrecarga do Sistema |
+| T4.1 | Captura de Evento | Processo | S / T / R | Interceção ou forja de eventos antes do registo |
+| T4.2 | Tratamento do Evento | Processo | T / R / I | Injeção de caracteres maliciosos ou fuga de dados sensíveis |
+| T4.3 | Persistência (PostgreSQL) | Data Store | T / R / I | Modificação ou eliminação de registos de auditoria |
+| T4.4 | Atores do Sistema | Entidade Externa | S / D / T | Falsificação de Identidade e sobrecarga do Sistema |
 ---
 
 ### 4.2 Detalhe das Ameaças e Vetores de Ataque
 
-### A. Processo: Tratamento do Evento (P4.2)
+### A. Processo: Tratamento do Evento (T4.2)
 
 **Ameaça (Tampering / Repudiation):** Log Injection  
 
@@ -252,7 +252,7 @@ Inserção de caracteres especiais ou sequências de escape em inputs da API, co
 
 ---
 
-### B. Data Store: Persistência do Evento (DS4.1)
+### B. Data Store: Persistência do Evento (T4.3)
 
 **Ameaça (Information Disclosure / Tampering):** Acesso indevido à base de dados de logs  
 
@@ -271,7 +271,7 @@ Inserção de caracteres especiais ou sequências de escape em inputs da API, co
 
 ---
 
-### C. Processo: Captura de Evento (P4.1)
+### C. Processo: Captura de Evento (T4.1)
 
 **Ameaça (Spoofing):** Forja de eventos de sistema  
 
@@ -289,7 +289,7 @@ Atacante que comprometeu sessão ou token de autenticação
 
 ---
 
-### D. Entidade Externa: Atores do Sistema (RF01)
+### D. Entidade Externa: Atores do Sistema (T4.4)
 
 **Ameaça (Spoofing / Denial of Service / Tampering):**  
 Falsificação de identidade e abuso de funcionalidades legítimas do sistema
@@ -318,17 +318,3 @@ Falsificação de identidade e abuso de funcionalidades legítimas do sistema
 - Deteção de comportamento anómalo (anomaly detection)  
 - Bloqueio automático após tentativas suspeitas  
 - Separação de privilégios entre roles (RF01 RBAC)  
-
-### 4.3 Avaliação de Risco (Risk Assessment)
-
-| Ameaça | Probabilidade | Impacto | Risco | Justificação |
-|--------|--------------|----------|-------|--------------|
-| Log Injection | Média | Alto | Alto | Afeta integridade da auditoria e análise forense |
-| Manipulação da DB de Logs | Baixa | Crítico | Muito Alto | Pode eliminar rastros de ataques persistentes |
-| Interceção de Fluxo | Média | Médio | Médio | Mitigado por TLS, mas crítico em ambientes internos |
-| Falsificação de Identidade (Spoofing) | Média | Alto | Alto | Uso de credenciais roubadas para assumir identidade de outro utilizador |
-| Abuso de Funcionalidades (Application Abuse) | Alta | Alto | Alto | Utilizadores autenticados exploram permissões legítimas para ações maliciosas |
-| Denial of Service (DoS / Flood de Requisições) | Média | Crítico | Muito Alto | Sobrecarga da API e do sistema de logging através de pedidos massivos |
-| Brute Force / Automation Attack | Média | Médio | Alto | Tentativas repetidas de autenticação para acesso não autorizado |
-| Escalada de Ataques via Conta Comprometida | Baixa | Crítico | Muito Alto | Contas válidas são usadas como ponto de entrada para ataques internos |
----
