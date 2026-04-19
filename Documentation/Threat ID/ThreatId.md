@@ -31,6 +31,162 @@ E — Elevation of Privilege (Escalada de privilégios):
 
 <br><br><br>
 
+## 1 Análise STRIDE - RF01 (Autenticação e RBAC)
+
+Esta análise foca-se nos mecanismos de gestão de identidade, emissão de tokens de sessão e controlo de acessos baseado em perfis (Advogado, Assistente Jurídico e Cliente) da Lawyer App.  
+Aplica-se o modelo STRIDE a cada elemento do DFD para identificar vetores de ataque e agentes de ameaça específicos.
+
+![Lvl1_RF01](../Dataflow/lvl1RF01.png)
+
+---
+
+## Mapeamento STRIDE por Elemento
+
+| ID | Elemento         | Elemento DFD            | STRIDE | Ameaça Identificada |
+| :--- |:-----------------|:------------------------| :--- | :--- |
+| **T1.1** | Processo         | 1.1 Validar Credenciais | **S, D** | **S:** Atacante utiliza *phishing* ou *brute force* para assumir identidade de Advogado. **D:** Ataque de *account lockout* para impedir o acesso legítimo. |
+| **T1.2** | Processo         | 1.2 Gerar Token JWT     | **I, E** | **I:** Exposição da *Secret Key* do JWT por má configuração. **E:** Emissão de tokens com *claims* de privilégios elevados indevidos. |
+| **T1.3** | Processo         | 1.3 Registar Auditoria  | **R, T** | **R:** Falha no registo de login impede a prova de ações. **T:** Manipulação do registo de log para ocultar acessos não autorizados. |
+| **T1.4** | Processo         | 1.4 Validar Acessos     | **E** | **E:** Falha na validação do token permite que um "Cliente" execute funções de "Advogado" (IDOR/Bypass). |
+| **T1.5** | Data Store       | D1 Base de Dados        | **T, I** | **T:** Alteração direta da tabela de permissões. **I:** Leitura de *hashes* de passwords por acesso não autorizado à BD. |
+| **T1.6** | Data Store       | D2 HashiCorp Vault      | **I, E** | **I:** Fuga de segredos por falta de políticas de acesso (*Access Policies*) restritas. |
+| **T1.7** | Entidade externa | Utilizador ↔ Web API    | **T, I** | **T:** Interceção do pedido de login para modificar dados. **I:** Captura de credenciais ou tokens em trânsito (Sniffing). |
+
+---
+
+## Detalhe das Ameaças e Abuse Cases
+
+### A. Escalada de Privilégios via JWT (T1.4)
+
+**Ameaça (Elevation of Privilege):** Um utilizador com o papel de "Cliente" manipula o token de sessão para obter permissões de "Advogado" e aceder a processos de terceiros.
+
+**Agente de Ameaça:** 
+- Utilizador autenticado malicioso (ex: Cliente da empresa).
+- Atacante externo com acesso a um token válido.
+
+**Vetor de Ataque:** 
+- Modificação local do *payload* do JWT (alteração da claim `role`).
+- Exploração de algoritmos de assinatura fracos (ex: alteração para `alg: none`).
+- Tentativa de acesso a *endpoints* administrativos (`/api/admin/*`) sem verificação rigorosa no lado do servidor.
+
+**Impacto:** 
+- Acesso não autorizado a segredos de justiça e dados sensíveis de outros clientes.
+- Capacidade de eliminar ou modificar documentos processuais.
+
+---
+
+### B. Falsificação de Identidade e Brute Force (T1.1)
+
+**Ameaça (Spoofing / Denial of Service):** Acesso indevido ao sistema através do roubo de credenciais ou automatização de tentativas de login.
+
+**Agente de Ameaça:** 
+- Bot automatizado.
+- Atacante externo.
+
+**Vetor de Ataque:**
+- *Credential Stuffing* (uso de passwords descobertas de outros sites).
+- *Password Spraying* contra contas de advogados conhecidos.
+- Geração massiva de pedidos de login para sobrecarregar o serviço de autenticação e a base de dados.
+
+**Impacto:** 
+- Comprometimento total da conta de utilizadores privilegiados.
+- Indisponibilidade do sistema para utilizadores legítimos devido ao bloqueio de contas ou carga na API.
+
+---
+
+### C. Negação de Auditoria e Repúdio (T1.3)
+
+**Ameaça (Repudiation):** Um utilizador realiza uma ação crítica e nega tê-la feito, aproveitando falhas no registo de logs.
+
+**Agente de Ameaça:** 
+- Utilizador interno malicioso (Advogado ou Assistente).
+
+**Vetor de Ataque:** 
+- Execução de ações enquanto o serviço de auditoria está offline ou sobrecarregado.
+- Exploração de falhas na lógica de registo onde o `UserID` não é corretamente associado ao evento de login.
+
+**Impacto:** 
+- Impossibilidade de realizar perícia forense após um incidente.
+- Perda de validade jurídica das ações realizadas na plataforma.
+
+---
+
+### D. Manipulação na Geração do Token (T1.2)
+**Ameaça (Information Disclosure / Elevation of Privilege):** Exposição da *Secret Key* em memória ou geração de tokens com dados forjados durante o processo de autenticação.
+
+**Agente de Ameaça:** 
+- Atacante externo explorando vulnerabilidades na aplicação.
+- Atacante interno (ex: programador com acesso a *dumps* de memória do servidor).
+
+**Vetor de Ataque:** 
+- Injeção de dados anómalos durante a criação do *payload* do token que forcem o sistema a assumir um *Role* superior por defeito.
+- Extração da *Secret Key* da memória da Web API (.NET) através de falhas de *buffer over-read* ou vulnerabilidades de dependências desatualizadas.
+
+**Impacto:** 
+- O atacante ganha a capacidade de forjar ("assinar") tokens JWT perfeitamente válidos para qualquer utilizador (incluindo administradores ou advogados seniores), comprometendo totalmente a integridade do sistema.
+
+---
+
+### E. Compromisso do Armazém de Dados (T1.5 - D1 Base de Dados)
+**Ameaça (Tampering / Information Disclosure):** Acesso não autorizado à tabela de utilizadores para extrair ou alterar dados críticos.
+
+**Agente de Ameaça:** 
+- Atacante externo (explorando a API).
+- Ameaça interna (ex: administrador de sistemas/DBA malicioso).
+  
+**Vetor de Ataque:** 
+- Exploração de vulnerabilidades de *SQL Injection* (caso o Entity Framework Core não seja usado corretamente nalgum *endpoint* antigo).
+- Acesso direto à rede da base de dados contornando a *Trust Boundary* por má configuração da *firewall* da Cloud.
+  
+**Impacto:** 
+- **Information Disclosure:** Fuga massiva de emails e *hashes* de passwords (embora mitigado pelo uso de Argon2id, a lista de emails fica exposta para ataques de *phishing*).
+- **Tampering:** O atacante altera diretamente a coluna `Role` de um cliente na base de dados para "Advogado", escalando privilégios de forma permanente e invisível para a aplicação.
+
+---
+
+### F. Fuga de Segredos no Cofre Digital (T1.6 - D2 HashiCorp Vault)
+**Ameaça (Information Disclosure / Elevation of Privilege):** Obtenção indevida das chaves mestras e segredos da aplicação armazenados no Key Vault.
+
+**Agente de Ameaça:** 
+- Atacante externo avançado.
+- Ex-colaborador com acessos não revogados à infraestrutura Cloud.
+  
+**Vetor de Ataque:** 
+- Descoberta acidental do *Client ID* e *Client Secret* (Credenciais de acesso ao Key Vault) deixados no código-fonte no GitHub (*hardcoded secrets*).
+- Má configuração do RBAC do HashiCorp, permitindo que utilizadores com privilégios de "Leitura" na Cloud consigam extrair o valor dos *Secrets*.
+  
+**Impacto:** 
+- Desastre total de segurança. O atacante não só pode forjar logins (roubando a *JWT Secret Key*), como também poderá ter acesso às chaves AES-256 usadas para cifrar os documentos confidenciais dos processos jurídicos.
+
+---
+
+### G. Interceção de Tráfego de Rede (T1.7 - Fluxo Utilizador ↔ Web API)
+**Ameaça (Tampering / Information Disclosure):** Escuta e modificação dos pacotes de dados enquanto viajam pela internet entre o cliente e o servidor.
+
+**Agente de Ameaça:** 
+- Atacante local posicionado na mesma rede do utilizador (ex: Wi-Fi público de um tribunal ou café).
+- ISP ou interveniente malicioso na infraestrutura de rede.
+  
+**Vetor de Ataque:** 
+- Ataque *Man-in-the-Middle* (MitM) através de envenenamento de ARP (ARP Spoofing) em redes locais.
+- Ataques de *TLS Stripping* para forçar a vítima a comunicar via HTTP em vez de HTTPS.
+- Captura de tráfego de rede (Packet Sniffing).
+  
+**Impacto:** 
+- Roubo das credenciais (email e password) em texto limpo durante o momento exato em que o utilizador tenta fazer login.
+- Roubo do Token JWT (*Session Hijacking*), permitindo ao atacante aceder à aplicação em nome do utilizador sem necessitar da password.
+
+---
+
+**Mitigações sugeridas (Traceability RF01):** 
+- Uso de **Argon2id** para proteção robusta de credenciais na D1.
+- Autenticação no HashiCorp Vault (D2) via *Managed Identities*, eliminando credenciais no código.
+- Configuração de **Rate Limiting** e **Lockout** para mitigar ataques de força bruta no login.
+- Configuração rigorosa de **HSTS** (HTTP Strict Transport Security) na Web API para impedir comunicações não cifradas e forçar o uso exclusivo de **TLS 1.2/1.3**.
+- Validação rigorosa de assinaturas JWT no servidor para impedir manipulação de papéis (RBAC).
+- Uso exclusivo de ORM (Entity Framework) com *queries* parametrizadas na Base de Dados.
+
+<br><br><br>
 ## 3 Análise STRIDE - RF03 (Organização de Sistema de Ficheiros)
 
 Esta análise foca-se nos processos de criação automática de estrutura de diretórios da Lawyer App.  
