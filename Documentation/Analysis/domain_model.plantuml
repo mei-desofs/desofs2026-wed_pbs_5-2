@@ -21,7 +21,6 @@ package "User Aggregate" {
     class Lawyer {
         - LicenseNumber: string
         - Specialization: string
-        - YearsOfExperience: int
     }
 
     class LegalAssistant {
@@ -74,7 +73,7 @@ package "Document Aggregate" {
 }
 
 ' Relações de Domínio reescritas para fluir da esquerda para a direita
-Client "1" -- "1" LegalProcess
+Client "1" -- "1..*" LegalProcess
 Lawyer "1..*" -- "*" LegalProcess
 LegalAssistant "0..*" -- "*" LegalProcess
 
