@@ -19,7 +19,7 @@ A nota final é o resultado da média das 5 categorias!
 
 ## 4 RF04 (Auditoria e Logging)
 
-#### Tabela da análise stride:
+#### 4.1 Tabela da análise stride:
 
  
 | ID | Elemento | Elemento DFD | STRIDE | Ameaça Identificada |
@@ -30,7 +30,7 @@ A nota final é o resultado da média das 5 categorias!
 | T4.4 | Atores do Sistema | Entidade Externa | S / D / T | Falsificação de Identidade e sobrecarga do Sistema |
 
 
-#### Tabela de Avaliação
+#### 4.2 Tabela de Avaliação
 
 Para maior visibilidade, usei o DREAD com as métricas de 1 a 5.
 
@@ -47,7 +47,7 @@ Para maior visibilidade, usei o DREAD com as métricas de 1 a 5.
 
 ---
 
-## Conclusão do Risk Assessment
+#### 4.3 Conclusão do Risk Assessment
 
 A aplicação da metodologia DREAD permitiu identificar e priorizar de forma objetiva as ameaças mais críticas ao sistema. Destacam-se três níveis principais de risco:
 
@@ -66,7 +66,7 @@ A aplicação da metodologia DREAD permitiu identificar e priorizar de forma obj
 - **Médio**:  
   - *Interceção de Fluxo* — mitigada parcialmente por TLS, mas ainda relevante em cenários específicos.
 
-### Priorização de Mitigações
+#### 4.4 Priorização de Mitigações
 
 Com base nesta análise, as medidas de mitigação devem ser implementadas pela seguinte ordem de prioridade:
 
@@ -86,3 +86,18 @@ Com base nesta análise, as medidas de mitigação devem ser implementadas pela 
 4. **Monitorização e deteção**
    - Alertas de comportamento anómalo  
    - Sistemas de deteção de intrusão  
+
+#### 4.5 Mitigações Associadas às Ameaças Prioritárias
+
+Com base nos resultados do DREAD, foram definidas mitigações específicas alinhadas com as ameaças de maior risco:
+
+| Ameaça | Mitigação |
+|--------|----------|
+| DoS / Flood | Rate Limiting, API Gateway throttling, Web Application Firewall (WAF) |
+| Abuso de Funcionalidades | RBAC (Role-Based Access Control), validação de regras de negócio no backend |
+| Escalada via Conta Comprometida | MFA, gestão segura de sessões, rotação de tokens |
+| Brute Force | Rate limiting por IP, CAPTCHA, lockout progressivo |
+| Spoofing | Autenticação forte, tokens assinados (JWT com assinatura segura) |
+| Log Injection | Sanitização de inputs, encoding de logs |
+| Manipulação de Logs | Logs imutáveis (append-only), hashing ou storage seguro (ex: WORM storage) |
+| Interceção de Fluxo | TLS 1.3, HSTS, validação de certificados |
