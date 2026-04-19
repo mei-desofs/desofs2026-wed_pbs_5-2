@@ -109,6 +109,120 @@ Com base nos resultados do DREAD, foram definidas mitigações específicas alin
 | Interceção de Tráfego de Rede        | Imposição obrigatória de HTTPS (TLS 1.2/1.3) e configuração de HSTS na Web API.                                       |
 | Negação de Auditoria                 | Geração de logs de segurança com IP e Timestamp a cada tentativa de login, gravados numa tabela protegida.            |
 
+
+
+
+<br><br><br>
+
+## 3 RF03 (Organização de Sistema de Ficheiros)
+
+### 3.1 Tabela da análise STRIDE:
+
+| ID   | Elemento                          | Elemento DFD | STRIDE    | Ameaça Identificada                                           |
+|------|-----------------------------------|--------------|-----------|---------------------------------------------------------------|
+| T3.1 | Criação de Estrutura de Diretórios | Processo     | T / I     | Path Traversal Attack                                         |
+| T3.2 | Criação de Estrutura de Diretórios | Processo     | D         | Filesystem Exhaustion (DoS)                                   |
+| T3.3 | Sistema de Ficheiros              | Data Store   | T / I     | Acesso Direto ao Filesystem                                   |
+| T3.4 | Captura do Evento de Criação      | Processo     | S         | Falsificação de Pedido de Criação                             |
+| T3.5 | Criação de Estrutura de Diretórios | Processo     | T         | Race Condition / TOCTOU                                       |
+| T3.6 | Base de Dados                     | Data Store   | T / R     | SQL Injection                                                 |
+| T3.7 | Advogado                          | Entidade Externa | S / D  | Abuso de Criação Massiva de Processos                         |
+
+---
+
+### 3.2 Tabela de Avaliação
+
+| ID   | Ameaça                                  | D  | R  | E  | A  | D  | Total | Risco      | Justificação                                                                                          |
+|------|-----------------------------------------|----|----|----|----|----|----|------------|-------------------------------------------------------------------------------------------------------|
+| T3.1 | Path Traversal Attack                   | 10 | 4  | 3  | 10 | 4  | 31 | Alto       | Comprometimento total do servidor se explorado, mas GUID server-side e `Path.Combine()` mitigam.     |
+| T3.2 | Filesystem Exhaustion (DoS)             | 8  | 8  | 7  | 9  | 7  | 39 | Muito Alto | Script simples esgota disco rapidamente. Cada processo cria 7+ subdiretórios.                         |
+| T3.3 | Acesso Direto ao Filesystem             | 10 | 3  | 2  | 10 | 3  | 28 | Muito Alto | Exposição total de documentos se RCE ocorrer. Ficheiros fora da raiz web reduzem probabilidade.       |
+| T3.4 | Falsificação de Pedido de Criação       | 7  | 6  | 6  | 8  | 6  | 33 | Alto       | JWT roubado permite criação em nome de outro utilizador. Quebra de não-repúdio.                       |
+| T3.5 | Race Condition / TOCTOU                 | 5  | 3  | 3  | 4  | 4  | 19 | Médio      | Duplicação de estruturas ou inconsistências. Transações do EF mitigam parcialmente.                   |
+| T3.6 | SQL Injection                           | 10 | 3  | 3  | 10 | 3  | 29 | Alto       | Perda total de dados se explorado. ORM e GUID server-side tornam exploração improvável.               |
+| T3.7 | Abuso de Criação Massiva de Processos   | 8  | 9  | 9  | 10 | 9  | 45 | Crítico    | Credenciais válidas + script trivial. Sem rate limiting. Esgota recursos e polui logs rapidamente.    |
+
+---
+
+### 3.4 Conclusão do Risk Assessment
+
+A aplicação da metodologia DREAD permitiu identificar e priorizar de forma objetiva as ameaças mais críticas ao sistema de organização de ficheiros. Destacam-se três níveis principais de risco:
+
+**Crítico:**
+    - *Abuso de Criação Massiva de Processos (45)* — representa a maior ameaça devido à facilidade de execução (script de 5 linhas) e impacto direto na disponibilidade e custos operacionais. Sem rate limiting, qualquer utilizador com credenciais válidas pode esgotar recursos.
+
+**Muito Alto:**
+    - *Filesystem Exhaustion / DoS (39)*
+    - *Acesso Direto ao Filesystem (28, mas com Damage=10)*
+
+Estes cenários comprometem a disponibilidade ou confidencialidade total do sistema. O Filesystem Exhaustion é altamente reprodutível, enquanto o Acesso Direto tem impacto catastrófico apesar de baixa probabilidade.
+
+**Alto:**
+    - *Falsificação de Pedido (33)*
+    - *Path Traversal (31)*
+    - *SQL Injection (29)*
+
+Ameaças que comprometem integridade, autenticação ou podem escalar para comprometimento total. Path Traversal e SQL Injection já têm mitigações robustas (GUID server-side, ORM), mas o impacto potencial mantém-nas em prioridade alta.
+
+**Médio:**
+    - *Race Condition / TOCTOU (19)* — baixa probabilidade e impacto limitado. Transações do Entity Framework já mitigam parcialmente.
+
+---
+
+### 3.5 Priorização de Mitigações
+
+Com base nesta análise, as medidas de mitigação devem ser implementadas pela seguinte ordem de prioridade:
+
+**Proteção contra Abuso e Disponibilidade**
+- Rate limiting (10 criações/hora por utilizador)
+- Sliding window counter para prevenir bypass
+- Anomaly detection (alertas para padrões suspeitos)
+
+**Defense-in-Depth para Acesso a Ficheiros**
+- Cifra de ficheiros em repouso (AES-256-GCM)
+- Azure Key Vault para gestão de chaves
+- Permissões de filesystem restritas (chmod 700)
+
+**Gestão de Recursos e Quotas**
+- Quotas de disco por utilizador (500GB)
+- Monitoring de espaço disponível (alertas >80%)
+- Cleanup automático de processos antigos (>90 dias)
+
+**Validação e Integridade**
+- Code review focado em file operations
+- Testes de penetração para path traversal
+- SAST no pipeline CI/CD para SQL injection
+- Unit tests para validações de path
+
+**Autenticação e Sessões**
+- Refresh tokens com rotação
+- Expiração JWT curta (15 minutos)
+- Anti-replay nonce
+
+**Atomicidade e Consistência**
+- Transações explícitas para criação de processos
+- Rollback automático em caso de erro
+- Integrity checks pós-criação
+
+---
+
+### 3.6 Mitigações Associadas às Ameaças Prioritárias
+
+Com base nos resultados do DREAD, foram definidas mitigações específicas alinhadas com as ameaças de maior risco do RF03:
+
+| Ameaça                                | Mitigação                                                                                                                                        |
+|---------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
+| Abuso de Criação Massiva              | Rate limiting (10/hora), sliding window counter, anomaly detection com bloqueio automático, CAPTCHA após threshold                               |
+| Filesystem Exhaustion (DoS)           | Quotas de disco por utilizador (500GB), monitoring de espaço (alerta >80%), cleanup automático (processos >90 dias), throttling de API           |
+| Acesso Direto ao Filesystem           | Cifra AES-256-GCM em repouso, Azure Key Vault para chaves, ficheiros fora da raiz web (`/var/data/processos/`), permissões filesystem (chmod 700) |
+| Falsificação de Pedido                | Refresh tokens com rotação, expiração JWT curta (15 min), anti-replay nonce, validação rigorosa de claims (userId, role, issuer)                 |
+| Path Traversal                        | `Path.Combine()` + `Path.GetFullPath()`, GUID gerado server-side (não aceita input), validação que path final está dentro do diretório base      |
+| SQL Injection                         | ORM (Entity Framework) com queries parametrizadas, GUID server-side elimina input malicioso, SAST automático no CI/CD, least privilege na BD     |
+| Race Condition / TOCTOU               | Transações explícitas com locks pessimistas, rollback automático em erro, verification pós-criação (integrity check)                              |
+
+
+
+
 <br><br><br>
 
 ## 4 RF04 (Auditoria e Logging)
