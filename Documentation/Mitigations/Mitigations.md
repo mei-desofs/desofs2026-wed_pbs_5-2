@@ -26,3 +26,36 @@ funcionalidades nativas de segurança do ecossistema .NET e HashiCorp Vault.
 As mitigações propostas utilizam bibliotecas standard do .NET (como `Microsoft.AspNetCore.Authentication.JwtBearer`). 
 Isto garante que a implementação na Fase 2 é viável, não requer criptografia customizada e minimiza a superfície de ataque ao
 utilizar ferramentas amplamente testadas pela comunidade de segurança.
+
+
+<br><br><br>
+
+## RF03 - Organização de Sistema de Ficheiros
+
+O plano de mitigação para o sistema de criação automática de estruturas de diretórios baseia-se em padrões da indústria (OWASP ASVS, CWE Top 25) e na utilização de funcionalidades nativas de segurança do ecossistema .NET e Azure.
+
+| ID Ameaça | Nível de Risco | Ameaça Principal                        | Mitigação Arquitetural e Técnica (Contramedida)                                                                                                                                                                                                                                                                                      | Componente Responsável        |
+|:----------|:---------------|:----------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------|
+| **T3.7**  | **Crítico**    | Abuso de Criação Massiva de Processos   | **Rate Limiting & Anomaly Detection:** Implementação de limite de 10 criações de processos por hora por utilizador através de *sliding window counter*. Sistema de deteção de anomalias que bloqueia automaticamente contas com padrões suspeitos (>50 criações/dia). CAPTCHA após 5 criações consecutivas em <10 minutos.             | Web API / Redis Cache         |
+| **T3.2**  | **Muito Alto** | Filesystem Exhaustion (DoS)             | **Quotas de Disco & Monitoring:** Configuração de quotas de armazenamento de 500GB por utilizador no sistema de ficheiros. Alertas automáticos quando ocupação atinge 80%. Cleanup automático de processos inativos há mais de 90 dias. Throttling de API para operações de criação de diretórios.                                     | Filesystem / Monitoring       |
+| **T3.3**  | **Muito Alto** | Acesso Direto ao Filesystem             | **Cifra em Repouso (Encryption at Rest):** Todos os ficheiros são cifrados com **AES-256-GCM** antes de serem armazenados. Chaves de cifra geridas exclusivamente via **Azure Key Vault** com acesso restrito via *Managed Identity*. Ficheiros armazenados fora da raiz web (`/var/data/processos/`). Permissões filesystem (chmod 700). | Azure Key Vault / Filesystem  |
+| **T3.4**  | **Alto**       | Falsificação de Pedido de Criação       | **Gestão Segura de Sessões:** Implementação de *refresh tokens* com rotação automática. Expiração de JWT curta (15 minutos). Sistema de *anti-replay* usando nonce único por pedido. Validação rigorosa de *claims* (userId, role, issuer) em cada pedido de criação.                                                                 | Web API (Auth Layer)          |
+| **T3.1**  | **Alto**       | Path Traversal Attack                   | **Validação Rigorosa de Paths:** Utilização mandatória de `Path.Combine()` e `Path.GetFullPath()` para construção de caminhos. GUID gerado server-side (não aceita input do utilizador). Verificação que o path final está sempre dentro do diretório base esperado. Rejeição de caracteres especiais (`../`, `..\\`, null bytes).   | Web API (File Operations)     |
+| **T3.6**  | **Alto**       | SQL Injection                           | **ORM & Queries Parametrizadas:** Acesso exclusivo à base de dados via ORM (Entity Framework Core) com queries parametrizadas. GUID gerado server-side elimina input malicioso. SAST automático no pipeline CI/CD para detetar uso indevido de `FromSqlRaw`. Princípio do menor privilégio (user DB sem DROP/TRUNCATE).              | Database / CI/CD Pipeline     |
+| **T3.5**  | **Médio**      | Race Condition / TOCTOU                 | **Transações Atómicas:** Uso de transações explícitas do Entity Framework para garantir atomicidade na criação (estrutura de diretórios + registo na BD). Locks pessimistas para prevenir criações simultâneas do mesmo processo. Rollback automático em caso de erro. Verificação de integridade pós-criação.                         | Database / Web API            |
+
+### Viabilidade Técnica (Feasibility)
+
+As mitigações propostas utilizam componentes standard do ecossistema .NET e Azure:
+
+| Componente                  | Tecnologia                                   | Maturidade | Complexidade |
+|-----------------------------|----------------------------------------------|------------|--------------|
+| Rate Limiting               | `Microsoft.AspNetCore.RateLimiting` (built-in) | Stable     | Baixa        |
+| Cifra AES-256-GCM           | `Azure.Security.KeyVault.Keys`               | Production | Média        |
+| Path Validation             | `System.IO.Path` (built-in)                  | Stable     | Baixa        |
+| ORM (EF Core)               | `Microsoft.EntityFrameworkCore`              | Production | Baixa        |
+| Anti-Replay Nonce           | Redis Cache + JWT Claims                     | Proven     | Média        |
+| Transações Atómicas         | Entity Framework Transactions                | Stable     | Baixa        |
+| SAST                        | GitHub Advanced Security / SonarQube         | Production | Baixa        |
+
+**Conclusão:** Todas as mitigações são implementáveis com bibliotecas standard e testadas pela comunidade. Não requer desenvolvimento de criptografia customizada ou componentes experimentais.
