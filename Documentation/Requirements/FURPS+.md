@@ -142,10 +142,13 @@
 - Aplicação utiliza uma base de dados relacional externa e não é permitido alojamento local de dados.
 
 
+
+
+
+
 <br><br><br><br>
 
-
-## RF03 - Organização de Sistema de Ficheiros 
+## RF03 - Organização de Sistema de Ficheiros
 
 ## Descrição
 - O sistema deve criar e gerir automaticamente uma estrutura de diretórios única para cada processo jurídico.
@@ -156,82 +159,98 @@
 
 ## Atores
 - Utilizador autenticado:
-    - **Advogado** tem controlo total sobre os diretórios dos seus processos.
-    - **Assistente Jurídico** pode aceder aos diretórios dos processos associados.
-    - **Cliente** pode apenas consultar ficheiros dos seus processos.
+  - **Advogado:** Tem controlo total sobre os diretórios dos seus processos.
+  - **Assistente Jurídico:** Pode aceder aos diretórios dos processos associados.
+  - **Cliente:** Pode apenas consultar ficheiros dos seus processos.
 
 ---
 
 ## *Inputs*
-- ***Criação de processo***: Pedido via API para criação de novo processo.
+- **Criação de processo:** Pedido via API para criação de novo processo.
 
 ---
 
 ## *Outputs*
-- **Process ID (GUID)**: Identificador único do processo  
-- **Criação de diretórios**: Estrutura de ficheiros associada ao processo  
-- **Log**: Registo da criação no sistema de auditoria  
+- **Process ID (GUID):** Identificador único do processo.
+- **Criação de diretórios:** Estrutura de ficheiros associada ao processo.
+- **Log:** Registo da criação no sistema de auditoria.
 
 ---
 
 ## Pré-condições
-- O utilizador deve estar autenticado.  
-- O pedido de criação de processo deve ser válido.  
+- O utilizador deve estar autenticado.
+- O pedido de criação de processo deve ser válido.
+- O sistema de ficheiros deve estar disponível e acessível pelo backend.
 
 ---
 
 ## Pós-condições
-- É criada uma estrutura de diretórios única para o processo.  
-- O identificador (*GUID*) é devolvido ao cliente.  
-- A operação é registada em logs de auditoria.  
+- É criada uma estrutura de diretórios única para o processo.
+- O identificador (*GUID*) é devolvido ao cliente.
+- A operação é registada em logs de auditoria.
+- O processo fica preparado para operações de gestão documental (RF02).
 
 ---
 
 ## Regras de negócio
-- Cada processo tem um diretório único identificado por GUID.  
-- Os paths são sempre gerados internamente (nunca com input do utilizador).  
-- A estrutura deve ser criada de forma atómica (com rollback em caso de erro).  
+- Cada processo tem um diretório único identificado por GUID.
+- Os *paths* são sempre gerados internamente (nunca com input do utilizador).
+- A estrutura deve ser criada de forma atómica (com *rollback* em caso de erro).
+- Os diretórios seguem uma estrutura predefinida e consistente.
+- Apenas o backend pode manipular diretamente o sistema de ficheiros.
 
 ---
 
 ## Non-Functional Requirements (FURPS+)
 
-### Segurança
-- Proteção contra *path traversal* usando `Path.Combine()` e `GetFullPath()`.  
-- Ficheiros armazenados fora da raiz web.  
-- Validação de ficheiros (extensão e *magic bytes*).  
-- Limite de tamanho de ficheiros: 20 MB.  
-- Headers seguros no download (*Content-Disposition* sanitizado).  
-- Controlo de acessos baseado em RBAC.  
+### Segurança (6 Security Pillars)
+
+| Pilar | Requisito de Segurança e Justificação | Referência ASVS |
+| :--- | :--- | :--- |
+| **1. Auth (Autenticação)** | **Associação a Utilizador Autenticado:** A criação de diretórios deve estar sempre associada a um utilizador autenticado. *Justificação: Garantir rastreabilidade e não-repúdio das operações.* | V2.1.1 |
+| **2. Access (Acesso)** | **Controlo de Acesso (RBAC):** O acesso aos diretórios deve respeitar as permissões definidas no RF01. *Justificação: Prevenir acessos não autorizados ao sistema de ficheiros.* | V4.1.1 |
+| **3. Data (Dados)** | **Isolamento de Dados:** Cada processo deve ter um diretório isolado identificado por GUID. *Justificação: Garantir separação lógica e segurança dos dados.* | V6.1.1 |
+| **4. Input (Entrada)** | **Prevenção de Path Traversal:** Uso obrigatório de `Path.Combine()` e `GetFullPath()` para construção de caminhos. *Justificação: Mitigar ataques de manipulação de paths.* | V5.1.3 |
+| **5. 3rd Party (Terceiros)** | **Gestão Segura de Dependências:** Bibliotecas de acesso ao sistema de ficheiros devem ser monitorizadas quanto a vulnerabilidades. *Justificação: Reduzir risco introduzido por componentes externos.* | V14.2.1 |
+| **6. Logging (Registos)** | **Auditoria de Operações:** Todas as operações de criação e acesso a diretórios devem ser registadas com timestamp e identificador do utilizador. *Justificação: Suporte a auditoria e análise forense.* | V7.1.1 |
+
+---
 
 ### Suportabilidade
-- Logs de criação de diretórios e acessos.  
-- Integração com sistema de auditoria (RF04).  
+- Integração com o sistema de auditoria (RF04).
+- Logs detalhados de criação e acesso a diretórios.
+- Capacidade de diagnóstico de falhas no sistema de ficheiros.
+
+---
 
 ### Desempenho
-- Operações de ficheiros realizadas de forma eficiente e segura.  
+- Operações de criação e acesso a ficheiros devem ser eficientes e não bloqueantes.
+- Uso de operações assíncronas sempre que aplicável.
 
 ---
 
 ## Tópicos adicionais
 - Estrutura de diretórios:
 
-/processos/ <br>
-└── {processId-GUID}/<br>
-├── documentos/<br>
-│ ├── peticoes/<br>
-│ ├── contratos/<br>
-│ └── outros/<br>
-├── correspondencia/<br>
-└── temp/
+/processos/
+└── {processId-GUID}/
+    ├── documentos/
+    │   ├── peticoes/
+    │   ├── contratos/
+    │   └── outros/
+    ├── correspondencia/
+    └── temp/
 
-
-- Chaves geridas via HashiCorp Vault.  
-- Permissões de sistema de ficheiros restritas ao backend.  
+- Ficheiros armazenados fora da raiz web.
+- Permissões de sistema de ficheiros restritas ao backend.
 - Integração com:
-    - **RF01 (RBAC)** – controlo de acessos  
-    - **RF02 (Gestão Documental)** – operações sobre ficheiros  
-    - **RF04 (Auditoria)** – registo de operações  
+  - RF01 (RBAC) – controlo de acessos  
+  - RF02 (Gestão Documental) – operações sobre ficheiros  
+  - RF04 (Auditoria) – registo de operações  
+
+
+
+
 
 
 <br><br><br><br>
