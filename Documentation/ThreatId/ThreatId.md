@@ -301,7 +301,7 @@ Aplica-se o modelo STRIDE a cada elemento do DFD para identificar vetores de ata
 
 **Mitigações sugeridas:**
 - Usar AES-256-GCM para cifra aplicacional antes de guardar no SQL Server
-- Guardar as chaves AES no Azure Key Vault ou equivalente
+- Guardar as chaves AES no Key Vault ou equivalente
 - Restringir permissões da conta de BD ao mínimo necessário (princípio do menor privilégio)
 - Ativar SQL Server Audit para detetar acessos diretos fora da aplicação
 

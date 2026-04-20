@@ -180,7 +180,7 @@ Com base nesta análise, as medidas de mitigação devem ser implementadas pela 
 
 **Defense-in-Depth para Acesso a Ficheiros**
 - Cifra de ficheiros em repouso (AES-256-GCM)
-- Azure Key Vault para gestão de chaves
+- Key Vault para gestão de chaves
 - Permissões de filesystem restritas (chmod 700)
 
 **Gestão de Recursos e Quotas**
@@ -214,7 +214,7 @@ Com base nos resultados do DREAD, foram definidas mitigações específicas alin
 |---------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
 | Abuso de Criação Massiva              | Rate limiting (10/hora), sliding window counter, anomaly detection com bloqueio automático, CAPTCHA após threshold                               |
 | Filesystem Exhaustion (DoS)           | Quotas de disco por utilizador (500GB), monitoring de espaço (alerta >80%), cleanup automático (processos >90 dias), throttling de API           |
-| Acesso Direto ao Filesystem           | Cifra AES-256-GCM em repouso, Azure Key Vault para chaves, ficheiros fora da raiz web (`/var/data/processos/`), permissões filesystem (chmod 700) |
+| Acesso Direto ao Filesystem           | Cifra AES-256-GCM em repouso, Key Vault para chaves, ficheiros fora da raiz web (`/var/data/processos/`), permissões filesystem (chmod 700) |
 | Falsificação de Pedido                | Refresh tokens com rotação, expiração JWT curta (15 min), anti-replay nonce, validação rigorosa de claims (userId, role, issuer)                 |
 | Path Traversal                        | `Path.Combine()` + `Path.GetFullPath()`, GUID gerado server-side (não aceita input), validação que path final está dentro do diretório base      |
 | SQL Injection                         | ORM (Entity Framework) com queries parametrizadas, GUID server-side elimina input malicioso, SAST automático no CI/CD, least privilege na BD     |
