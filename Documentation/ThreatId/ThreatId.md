@@ -187,6 +187,220 @@ Aplica-se o modelo STRIDE a cada elemento do DFD para identificar vetores de ata
 - Uso exclusivo de ORM (Entity Framework) com *queries* parametrizadas na Base de Dados.
 
 <br><br><br>
+
+## 2 Análise STRIDE - RF02 (Gestão Documental)
+
+**Contexto técnico:** Backend .NET · SQL Server · Ficheiros cifradoS (AES-256-GCM) · Autenticação JWT · Papéis: Advogado, Assistente Jurídico, Cliente
+
+![Lvl1_RF02](../Dataflow/Lv1_RF02.png)
+
+---
+
+### 2.1 Mapeamento STRIDE por Elemento
+
+| ID | Elemento | Elemento DFD | STRIDE | Ameaça Identificada |
+|----|----------|--------------|--------|---------------------|
+| P2.1 | Receção do Pedido | Processo | S / T / D | JWT falsificado ou expirado; Pedidos mal formados para causar erro; flood de pedidos para DoS |
+| P2.2 | Controlo de Autorização | Processo | S / E / R | Bypass de autorização via Process ID de outro processo (IDOR/BOLA); Mudança de role; ausência de log de acessos negados |
+| P2.3 | Tratamento do Ficheiro | Processo | T / I / D | Upload de ficheiro malicioso; Falha de encriptação; Tamanho do documento pode causar DoS |
+| P2.4 | Persistência / Recuperação | Processo | T / R / I | SQL Injection via Process ID ou nome de ficheiro; ausência de transação atómica deixa estado inconsistente; falta de log de operações |
+| DS2.1 | SQL Server (Documentos) | Data Store | T / I / R | Acesso direto à BD sem passar pela API; Ausência de cifra adequada expõe conteúdo |
+| DS2.2 | SQL Server (Utilizadores) | Data Store | S / T / I | Passwords em plain text; Modificação direta de role na BD; Roubo de credenciais |
+| EE2.1 | Atores do Sistema | Entidade Externa | S / D / E | Credenciais comprometidas ; flood massivo de uploads/downloads;|
+| EE2.2 | Emissor de JWT | Entidade Externa | S / T | Emissor comprometido |
+
+---
+
+### 2.2 Detalhe das Ameaças e Vetores de Ataque
+
+### A. Processo: Controlo de Autorização (P2.2)
+
+**Ameaça (Spoofing / Elevation of Privilege):** IDOR / BOLA via Process ID
+
+**Agente de Ameaça:**
+- Advogado de outro escritório que conhece ou adivinha um Process ID
+- Assistente Jurídico que tenta aceder a processos fora da sua atribuição
+- Cliente que tenta aceder a documentos de processos de outros clientes
+
+**Vetor de Ataque:**
+- Envio de pedidos com um Process ID válido mas que pertence a outro utilizador
+- Iteração sequencial de Process IDs para descobrir processos existentes (enumeração)
+
+**Impacto:**
+- Acesso não autorizado a documentos jurídicos confidenciais
+
+**Mitigações sugeridas:**
+- Verificar na BD, em cada pedido, se o utilizador do JWT pertence ao processo solicitado
+- Nunca confiar em papéis ou permissões enviados no corpo do pedido
+- Registar todas as tentativas de acesso negadas com o ID do utilizador e Process ID
+
+---
+
+### B. Processo: Tratamento do Ficheiro (P2.3)
+
+**Ameaça (Tampering / Information Disclosure):** Upload de Ficheiro Malicioso
+
+**Agente de Ameaça:**
+- Utilizador autenticado
+- Atacante com acesso a credenciais comprometidas
+
+**Vetor de Ataque:**
+- Renomear um executável como `.pdf` para contornar validação por extensão
+- Enviar um DOCX que é um zip-bomb (pequeno comprimido, enorme descomprimido)
+
+**Impacto:**
+- Execução de código no servidor ou no cliente que abrir o ficheiro
+- Distribuição de malware a outros utilizadores que descarreguem o ficheiro
+
+**Mitigações sugeridas:**
+- Validar magic bytes em .NET além da extensão
+- Verificar tamanho descomprimido antes de extrair conteúdo
+- Remover macros de ficheiros
+
+---
+
+### C. Processo: Persistência / Recuperação (P2.4)
+
+**Ameaça (Tampering / Repudiation):** SQL Injection
+
+**Agente de Ameaça:**
+- Atacante externo com acesso à API
+- Utilizador interno malicioso que conheça a estrutura de dados
+
+**Vetor de Ataque:**
+- Injeção de SQL via Process ID ou nome de ficheiro se as queries não usarem parâmetros
+- Ausência de logs de operações impede deteção de acessos indevidos
+
+**Impacto:**
+- Exfiltração ou destruição de dados na BD via SQL Injection
+- Impossibilidade de auditoria forense por falta de logs
+
+**Mitigações sugeridas:**
+- Usar sempre Entity Framework com parâmetros
+- Registar todas as operações (upload, download, edição, listagem) com timestamp UTC, ID do utilizador, papel e Process ID
+
+---
+
+### D. Data Store: SQL Server – Documentos (DS2.1)
+
+**Ameaça (Tampering / Information Disclosure):** Acesso Direto à Base de Dados
+
+**Agente de Ameaça:**
+- Administrador de base de dados com más intenções
+- Atacante que comprometa as credenciais de ligação à BD
+
+**Vetor de Ataque:**
+- Acesso direto ao SQL Server com as credenciais da connection string da aplicação
+- Modificação direta de registos varbinary ou metadados sem passar pela API
+- Cifra com algoritmo fraco (ex: AES-ECB) torna os ficheiros reversíveis com análise de padrões
+
+**Impacto:**
+- Exposição do conteúdo de documentos jurídicos confidenciais
+- Adulteração de documentos sem registo nos logs da aplicação
+- Comprometimento da integridade de provas em processos judiciais
+
+**Mitigações sugeridas:**
+- Usar AES-256-GCM para cifra aplicacional antes de guardar no SQL Server
+- Guardar as chaves AES no Azure Key Vault ou equivalente
+- Restringir permissões da conta de BD ao mínimo necessário (princípio do menor privilégio)
+- Ativar SQL Server Audit para detetar acessos diretos fora da aplicação
+
+---
+
+### E. Data Store: SQL Server – Utilizadores (DS2.2)
+
+**Ameaça (Spoofing / Tampering):** Credenciais Comprometidas e Mudança para Role com mais permissões
+
+**Agente de Ameaça:**
+- Atacante externo com acesso à BD
+- Utilizador interno com acesso à tabela de utilizadores
+
+**Vetor de Ataque:**
+- Passwords guardadas em plaintext ou com hash fraco (MD5/SHA-1) permitem leitura direta
+- Modificação direta do campo 'role' na BD para elevar privilégios
+- Exfiltração da tabela de utilizadores via SQL Injection
+
+**Impacto:**
+- Acesso não autorizado a todos os documentos do sistema referentes a um advogado
+- Elevação de privilégios de Cliente para Advogado
+- Comprometimento de toda a plataforma por acesso às credenciais de todos os utilizadores
+
+**Mitigações sugeridas:**
+- Usar `PasswordHasher` do ASP.NET Core Identity (Argon2id) ou BCrypt.Net para guardar passwords
+- Verificar sempre na BD o papel do utilizador do JWT
+- Separar a conta de BD da aplicação da conta de administração
+
+---
+
+### F. Entidade Externa: Atores do Sistema (EE2.1)
+
+**Ameaça (Spoofing / Denial of Service):** Abuso de Funcionalidades e Flood
+
+**Agente de Ameaça:**
+- Utilizador autenticado malicioso (qualquer papel)
+- Bot automatizado com credenciais válidas
+- Cliente com credenciais comprometidas
+
+**Vetor de Ataque:**
+- Uso de credenciais roubadas para simular ações de outro utilizador
+- Upload massivo de ficheiros grandes para esgotar espaço no SQL Server
+- Iteração em loop de Process IDs no endpoint de download para exfiltrar documentos
+- Tentativas repetidas de autenticação para descobrir passwords (brute force)
+
+**Impacto:**
+- Quebra de autenticidade, sob a forma de ações atribuídas ao utilizador errado
+- Indisponibilidade do serviço por esgotamento de recursos
+- Exfiltração em massa de documentos jurídicos confidenciais
+
+**Mitigações sugeridas:**
+- Rate limiting por utilizador e por IP no ASP.NET Core (ex: `AspNetCoreRateLimit`)
+- Quotas de tamanho e número de ficheiros por processo
+- JWT com validade curta para limitar janela de uso de tokens roubados
+- Deteção de comportamento anormais
+---
+
+### G. Entidade Externa: Emissor de JWT (EE2.2)
+
+**Ameaça (Spoofing / Tampering):** Comprometimento do Emissor de Tokens
+
+**Agente de Ameaça:**
+- Atacante que comprometa a chave privada do emissor JWT
+- Configuração incorreta do backend que aceite o algoritmo `none`
+
+**Vetor de Ataque:**
+- Forja de JWTs com qualquer claim (papel, ID de utilizador) se a chave privada for conhecida
+- JWT com claim `aud` ou `iss` incorretos aceite por má configuração do `TokenValidationParameters`
+
+**Impacto:**
+- Acesso total ao sistema com qualquer papel desejado
+- Comprometimento de todos os utilizadores e documentos da plataforma
+
+**Mitigações sugeridas:**
+- Configurar `ValidateIssuer = true`, `ValidateAudience = true`, `ValidateLifetime = true`
+- Guardar a chave pública de verificação em local seguro
+- Rodar as chaves do emissor regularmente
+
+---
+
+### 2.3 Avaliação de Risco (Risk Assessment)
+
+| Ameaça | Probabilidade | Impacto | Risco | Justificação |
+|--------|--------------|---------|-------|--------------|
+| IDOR / BOLA via Process ID | Alta | Crítico | Crítico | Qualquer utilizador autenticado pode tentar aceder a processos de outros. Sem verificação de ownership na BD, o impacto é total |
+| Upload de ficheiro malicioso | Média | Muito Alto | Muito Alto | Ficheiro malicioso pode comprometer o servidor ou ser distribuído a outros utilizadores.|
+| SQL Injection | Média | Crítico | Muito Alto | A BD contém documentos jurídicos sensíveis. Um ataque bem-sucedido expõe ou destrói todo o conteúdo |
+| JWT com algoritmo 'none' aceite | Baixa | Crítico | Alto | Probabilidade baixa se a configuração for feita corretamente, mas o impacto é total. Erro de configuração comum em .NET |
+| Aumento de role via BD | Baixa | Crítico | Alto | Acesso direto ao SQL Server permite modificar papéis. Mitigado por permissões de BD restritas |
+| Flood de uploads / DoS | Alta | Alto | Alto | Sem quotas nem rate limiting, qualquer utilizador autenticado pode esgotar recursos do SQL Server |
+| Credenciais comprometidas (Spoofing) | Média | Alto | Alto | JWT com expiração longa ou passwords fracas aumentam a janela de ataque. Brute force sem lockout facilita o acesso |
+| Ausência de atomicidade no upload | Média | Médio | Médio | Falhas na transação deixam estado inconsistente na BD|
+| Log Injection | Média | Médio | Médio | Nomes de ficheiro com caracteres especiais podem corromper logs |
+| Metadados sensíveis em ficheiros | Alta | Médio | Médio | PDF e DOCX frequentemente contêm nomes de autores, histórico de revisões |
+| Ausência de TLS na ligação à BD | Baixa | Alto | Médio | Intercetação da ligação .API - SQL Server expõe dados em trânsito|
+
+---
+
+<br><br><br>
 ## 3 Análise STRIDE - RF03 (Organização de Sistema de Ficheiros)
 
 Esta análise foca-se nos processos de criação automática de estrutura de diretórios da Lawyer App.  
