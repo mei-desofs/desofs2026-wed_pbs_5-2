@@ -240,17 +240,18 @@ Com base nos resultados do DREAD, foram definidas mitigações específicas alin
 
 Para maior visibilidade, usei o DREAD com as métricas de 1 a 5.
 
-| ID   | Ameaça                                | D | R | E | A | D | Total | Risco      | Justificação                                                      |
-|------|---------------------------------------|---|---|---|---|---|-------|------------|-------------------------------------------------------------------|
-| T4.1 | Interceção de Fluxo                   | 3 | 3 | 3 | 4 | 3 | 16    | Médio      | Mitigado por TLS, mas ainda relevante em redes internas           |
-| T4.2 | Log Injection                         | 4 | 3 | 3 | 2 | 4 | 16    | Alto       | Compromete a integridade da auditoria e dificulta análise forense |
-| T4.3 | Manipulação da DB de Logs             | 5 | 2 | 2 | 5 | 2 | 16    | Alto       | Impacto crítico na persistência; pode eliminar rastos de ataques  |
-| T4.4 | Falsificação de Identidade (Spoofing) | 4 | 3 | 3 | 4 | 3 | 17    | Alto       | Permite ações maliciosas em nome de utilizadores legítimos        |
-| T4.4 | Abuso de Funcionalidades              | 4 | 4 | 4 | 5 | 4 | 21    | Muito Alto | Exploração de permissões legítimas não restringidas               |
-| T4.4 | Denial of Service (DoS / Flood)       | 5 | 5 | 4 | 5 | 5 | 24    | Crítico    | Alta automatização; pode indisponibilizar o sistema               |
-| T4.4 | Brute Force / Automation              | 3 | 5 | 4 | 5 | 4 | 21    | Alto       | Ataques contínuos devido à facilidade de automatização            |
-| T4.4 | Escalada via Conta Comprometida       | 5 | 2 | 2 | 5 | 2 | 16    | Muito Alto | Impacto máximo se contas privilegiadas forem comprometidas        |
+#### 4.2 Tabela de Avaliação (Escala 1–10)
 
+| ID   | Ameaça                                | D  | R  | E  | A  | D  | Total | Risco      | Justificação                                                      |
+|------|---------------------------------------|----|----|----|----|----|-------|------------|-------------------------------------------------------------------|
+| T4.1 | Interceção de Fluxo                   | 6  | 6  | 6  | 8  | 6  | 32    | Médio      | Mitigado por TLS, mas ainda relevante em redes internas           |
+| T4.2 | Log Injection                         | 8  | 6  | 6  | 4  | 8  | 32    | Alto       | Compromete a integridade da auditoria e dificulta análise forense |
+| T4.3 | Manipulação da DB de Logs             | 10 | 4  | 4  | 10 | 4  | 32    | Alto       | Impacto crítico na persistência; pode eliminar rastos de ataques  |
+| T4.4 | Falsificação de Identidade (Spoofing) | 8  | 6  | 6  | 8  | 6  | 34    | Alto       | Permite ações maliciosas em nome de utilizadores legítimos        |
+| T4.4 | Abuso de Funcionalidades              | 8  | 8  | 8  | 10 | 8  | 42    | Muito Alto | Exploração de permissões legítimas não restringidas               |
+| T4.4 | Denial of Service (DoS / Flood)       | 10 | 10 | 8  | 10 | 10 | 48    | Crítico    | Alta automatização; pode indisponibilizar o sistema               |
+| T4.4 | Brute Force / Automation              | 6  | 10 | 8  | 10 | 8  | 42    | Alto       | Ataques contínuos devido à facilidade de automatização            |
+| T4.4 | Escalada via Conta Comprometida       | 10 | 4  | 4  | 10 | 4  | 32    | Muito Alto | Impacto máximo se contas privilegiadas forem comprometidas        |
 ---
 
 #### 4.3 Conclusão do Risk Assessment
@@ -259,11 +260,11 @@ A aplicação da metodologia DREAD permitiu identificar e priorizar de forma obj
 níveis principais de risco:
 
 - **Crítico**:
-    - *DoS / Flood (24)* — representa a maior ameaça devido à sua facilidade de execução e impacto direto na disponibilidade do sistema.
+    - *DoS / Flood (48)* — representa a maior ameaça devido à sua facilidade de execução e impacto direto na disponibilidade do sistema.
 
 - **Muito Alto**:
-    - *Abuso de Funcionalidades (21)*
-    - *Escalada via Conta Comprometida (16, mas com impacto elevado)*  
+    - *Abuso de Funcionalidades (42)*
+    - *Escalada via Conta Comprometida (32, mas com impacto elevado)*  
       Estes cenários exploram falhas no controlo de acesso e no modelo de permissões, podendo comprometer totalmente a integridade do
       sistema.
 

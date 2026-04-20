@@ -59,3 +59,37 @@ As mitigações propostas utilizam componentes standard do ecossistema .NET e Az
 | SAST                        | GitHub Advanced Security / SonarQube         | Production | Baixa        |
 
 **Conclusão:** Todas as mitigações são implementáveis com bibliotecas standard e testadas pela comunidade. Não requer desenvolvimento de criptografia customizada ou componentes experimentais.
+
+
+## RF04 - Auditoria de Acessos e Logging
+
+O plano de mitigação para o sistema de auditoria e logging baseia-se em padrões da indústria (OWASP ASVS, CWE Top 25) e na utilização de
+funcionalidades nativas de segurança do ecossistema .NET e PostgreSQL, garantindo a imutabilidade, integridade e confidencialidade dos registos de auditoria.
+
+| ID Ameaça | Nível de Risco | Ameaça Principal                       | Mitigação Arquitetural e Técnica (Contramedida)                                                                                                                                                                                                                                                                                                            | Componente Responsável          |
+|:----------|:---------------|:---------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:--------------------------------|
+| **T4.4**  | **Crítico**    | Denial of Service / Log Flood          | **Rate Limiting & WAF:** Implementação de limite de pedidos por IP e por utilizador autenticado via *sliding window counter*, utilizando `Microsoft.AspNetCore.RateLimiting`. Configuração de *throttling* na API Gateway para operações que geram logs em massa. Integração com *Web Application Firewall* (WAF) para bloquear padrões de tráfego abusivo. | Web API / API Gateway           |
+| **T4.4**  | **Muito Alto** | Abuso de Funcionalidades Legítimas     | **RBAC & Validação de Regras de Negócio:** Aplicação estrita de políticas de autorização (RBAC) no backend para cada endpoint que gera registos de auditoria. Validação server-side das regras de negócio antes do registo do evento, prevenindo que utilizadores com permissões legítimas explorem funcionalidades além do seu âmbito definido em RF01.    | Web API (Authorization Layer)   |
+| **T4.4**  | **Muito Alto** | Escalada via Conta Comprometida        | **Gestão Segura de Sessões & Deteção de Anomalias:** Expiração de JWT curta (15 minutos) com *refresh tokens* de rotação automática. Sistema de deteção de comportamento anómalo que bloqueia automaticamente contas com padrões suspeitos (ex: volume de ações anormalmente elevado). Alertas automáticos para o administrador em caso de deteção.        | Web API (Auth Layer) / Monitoring |
+| **T4.4**  | **Alto**       | Brute Force / Automação                | **Rate Limiting por IP & Lockout Progressivo:** Bloqueio progressivo de conta após 5 tentativas de acesso falhadas consecutivas. CAPTCHA após múltiplas tentativas suspeitas em janela temporal reduzida. Registo de todas as tentativas com IP e timestamp para análise forense posterior.                                                                 | Web API / Database              |
+| **T4.4**  | **Alto**       | Falsificação de Identidade (Spoofing)  | **Autenticação Forte com JWT Assinado:** Validação estrita da assinatura, expiração (`exp`) e audiência (`aud`) do JWT em cada pedido. Cada registo de auditoria é obrigatoriamente associado ao `userId` e `role` extraídos do token validado server-side, garantindo não-repúdio e rastreabilidade inequívoca das ações.                                 | Web API (Auth Layer)            |
+| **T4.2**  | **Alto**       | Log Injection                          | **Sanitização & Encoding de Logs:** Todos os inputs do utilizador são sanitizados antes de serem escritos nos registos de auditoria, removendo caracteres de controlo (`\n`, `\r`, null bytes). Utilização de logging estruturado com *Serilog* e *output templates* tipados, que impedem a interpretação de dados como diretivas de log.                   | Web API (Logging Layer)         |
+| **T4.3**  | **Alto**       | Manipulação / Eliminação de Logs       | **Imutabilidade e Controlo de Acesso à BD:** A tabela de auditoria no PostgreSQL é configurada em modo *append-only* (sem permissões `UPDATE` ou `DELETE` para o utilizador de aplicação). Permissões de base de dados restritas ao mínimo necessário. Implementação de *hashing* cumulativo de registos para deteção de adulteração posterior.             | Database (PostgreSQL)           |
+| **T4.1**  | **Médio**      | Interceção de Fluxo de Eventos         | **Cifragem em Trânsito:** Toda a comunicação entre a Web API e a base de dados de auditoria é realizada sobre **TLS 1.2/1.3**. Implementação de **HSTS** para prevenir ataques de *downgrade*. Validação mútua de certificados em ambientes internos para garantir que apenas componentes autorizados escrevem na base de dados de logs.                     | Infraestrutura / Database       |
+
+### Viabilidade Técnica (Feasibility)
+
+As mitigações propostas utilizam componentes standard do ecossistema .NET e PostgreSQL:
+
+| Componente                  | Tecnologia                                        | Maturidade | Complexidade |
+|-----------------------------|---------------------------------------------------|------------|--------------|
+| Rate Limiting               | `Microsoft.AspNetCore.RateLimiting` (built-in)    | Stable     | Baixa        |
+| Logging Estruturado         | `Serilog` + `Serilog.Sinks.PostgreSQL`            | Production | Baixa        |
+| Log Sanitization            | `Serilog` Destructuring + Output Templates        | Production | Baixa        |
+| RBAC nos Logs               | ASP.NET Core Authorization Policies               | Stable     | Baixa        |
+| Imutabilidade (append-only) | PostgreSQL Row-Level Security + Permissões DB     | Stable     | Média        |
+| Hashing de Registos         | `System.Security.Cryptography.SHA256` (built-in)  | Stable     | Média        |
+| Deteção de Anomalias        | Middleware customizado + Azure Monitor / Seq       | Proven     | Média        |
+| TLS em Trânsito             | ASP.NET Core Kestrel HTTPS + `Npgsql` SSL Mode    | Production | Baixa        |
+
+**Conclusão:** Todas as mitigações são implementáveis com bibliotecas standard e testadas pela comunidade. A componente de maior complexidade é a deteção de anomalias comportamentais, mas pode ser faseada na implementação sem comprometer as restantes contramedidas.
