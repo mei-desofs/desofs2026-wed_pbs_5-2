@@ -111,6 +111,121 @@ Com base nos resultados do DREAD, foram definidas mitigações específicas alin
 
 
 
+<br><br><br>
+
+## 2 RF02 (Gestão Documental)
+
+#### 2.1 Tabela da análise STRIDE:
+
+| ID    | Elemento                   | Elemento DFD     | STRIDE    | Ameaça Identificada                                                                           |
+|-------|----------------------------|------------------|-----------|-----------------------------------------------------------------------------------------------|
+| P2.1  | Receção do Pedido          | Processo         | S / T / D | JWT falsificado ou expirado; pedidos mal formados para causar erro; flood de pedidos para DoS |
+| P2.2  | Controlo de Autorização    | Processo         | S / E / R | IDOR / BOLA via Process ID; mudança de role; ausência de log de acessos negados               |
+| P2.3  | Tratamento do Ficheiro     | Processo         | T / I / D | Upload de ficheiro malicioso; falha de cifra; tamanho do documento pode causar DoS           |
+| P2.4  | Persistência / Recuperação | Processo         | T / R / I | SQL Injection via Process ID ou filename; ausência de atomicidade; falta de log de operações |
+| DS2.1 | SQL Server (Documentos)    | Data Store       | T / I / R | Acesso direto à BD sem passar pela API; ausência de cifra adequada expõe conteúdo            |
+| DS2.2 | SQL Server (Utilizadores)  | Data Store       | S / T / I | Passwords em plaintext; modificação direta de role na BD; roubo de credenciais               |
+| EE2.1 | Atores do Sistema          | Entidade Externa | S / D / E | Credenciais comprometidas; flood massivo de uploads/downloads                                |
+| EE2.2 | Emissor de JWT             | Entidade Externa | S / T     | Emissor comprometido; algoritmo `none` aceite por má configuração                            |
+
+#### 2.2 Tabela de Avaliação
+
+| ID    | Ameaça                            | D  | R  | E  | A  | D  | Total | Risco      | Justificação                                                                                                          |
+|-------|-----------------------------------|----|----|----|----|----|-------|------------|-----------------------------------------------------------------------------------------------------------------------|
+| EE2.1 | Flood de uploads / DoS            | 8  | 9  | 9  | 10 | 8  | 44    | Crítico    | Script trivial com credenciais válidas. Sem quotas nem rate limiting esgota o SQL Server rapidamente.                 |
+| P2.2  | IDOR / BOLA via Process ID        | 10 | 8  | 7  | 10 | 8  | 43    | Crítico    | Qualquer utilizador autenticado pode iterar Process IDs sem verificação de ownership. Viola sigilo profissional.      |
+| P2.3  | Upload de ficheiro malicioso      | 10 | 7  | 7  | 9  | 6  | 39    | Muito Alto | DOCX com XXE é trivial de construir. Zip-bomb esgota SQL Server. Malware distribuído a todos os utilizadores.         |
+| EE2.1 | Credenciais comprometidas         | 8  | 6  | 6  | 8  | 6  | 34    | Alto       | JWT com expiração longa ou passwords fracas aumentam a janela de ataque. Brute force sem lockout facilita o acesso.  |
+| P2.4  | SQL Injection                     | 10 | 4  | 4  | 10 | 4  | 32    | Alto       | Impacto total na BD com documentos jurídicos sensíveis. Mitigado pelo Entity Framework, mas o risco persiste.        |
+| P2.1  | JWT forjado / algoritmo `none`    | 10 | 3  | 4  | 10 | 5  | 32    | Alto       | Impacto catastrófico se a chave for comprometida. Probabilidade baixa com configuração correta do ASP.NET Core.      |
+| DS2.2 | Aumento de role via BD            | 8  | 3  | 3  | 8  | 4  | 26    | Alto       | Acesso direto ao SQL Server permite modificar roles. Mitigado por permissões de BD restritas.                        |
+| DS2.1 | Metadados sensíveis em ficheiros  | 5  | 8  | 8  | 7  | 8  | 36    | Médio      | PDF e DOCX frequentemente contêm nomes de autores e histórico de revisões — fácil de explorar.                       |
+| P2.4  | Log injection                     | 6  | 6  | 6  | 5  | 7  | 30    | Médio      | Nomes de ficheiro com caracteres especiais podem corromper logs. Dificulta análise forense.                           |
+| P2.4  | Ausência de atomicidade no upload | 6  | 5  | 4  | 6  | 4  | 25    | Médio      | Falhas na transação deixam estado inconsistente na BD (ficheiro sem metadados ou o contrário).                       |
+| DS2.1 | Ausência de TLS na ligação à BD   | 7  | 3  | 3  | 8  | 3  | 24    | Médio      | Intercetação da ligação API → SQL Server expõe dados em trânsito. Mitigado com `Encrypt=True` na connection string.  |
+
+---
+
+#### 2.3 Conclusão do Risk Assessment
+
+A aplicação da metodologia DREAD permitiu identificar e priorizar de forma objetiva as ameaças mais críticas ao sistema de gestão documental. Destacam-se quatro níveis principais de risco:
+
+- **Crítico**:
+    - *Flood / DoS por uploads massivos (44)*
+    - *IDOR / BOLA via Process ID (43)*
+
+Estas duas ameaças são as mais críticas do RF02. O Flood é trivialmente explorável com credenciais válidas e um script simples, esgotando os recursos do SQL Server. O IDOR compromete o sigilo profissional cliente-advogado e é facilmente automatizável com iteração sequencial de Process IDs — sem verificação de ownership na BD, o impacto é total.
+
+- **Muito Alto**:
+    - *Upload de ficheiro malicioso (39)*
+
+Esta ameaça pode escalar para comprometimento total do servidor via XXE no parser .NET de DOCX, ou para distribuição de malware a todos os utilizadores que descarreguem o ficheiro afetado.
+
+- **Alto**:
+    - *Credenciais comprometidas / Spoofing (34)*
+    - *SQL Injection (32)*
+    - *JWT forjado (32)*
+    - *Aumento de role via BD (26)*
+
+Ameaças com impacto catastrófico mas probabilidade mitigada pelas tecnologias escolhidas (.NET + Entity Framework + JWT). Mantêm-se em prioridade alta pelo potencial de comprometimento total da base de dados, do sistema de autenticação e do controlo de acessos.
+
+- **Médio**:
+    - *Metadados sensíveis em ficheiros (36)*
+    - *Log injection (30)*
+    - *Ausência de atomicidade no upload (25)*
+    - *Ausência de TLS na ligação à BD (24)*
+
+Riscos cuja exploração exige condições específicas ou que afetam principalmente a camada de auditoria e infraestrutura sem comprometer diretamente o conteúdo dos processos jurídicos.
+
+#### 2.4 Priorização de Mitigações
+
+Com base nesta análise, as medidas de mitigação devem ser implementadas pela seguinte ordem de prioridade:
+
+1. **Disponibilidade e proteção contra automação**
+    - Rate limiting por utilizador
+    - Quotas de tamanho ficheiros por processo
+    - Throttling de API para operações de upload
+
+2. **Controlo de acesso e autorização**
+    - Verificação de ownership do processo em cada pedido (anti-IDOR)
+    - RBAC por role no ASP.NET Core
+    - Validação JWT com rejeição do algoritmo `none`
+    - Verificação do role do utilizador na BD em cada pedido
+
+3. **Segurança no tratamento de ficheiros**
+    - Validação de magic bytes além da extensão
+    - Proteção contra zip-bomb e XXE em DOCX
+    - Remoção de macros e metadados antes de guardar
+    - Antivírus no pipeline de upload
+
+4. **Proteção da base de dados**
+    - Queries parametrizadas com Entity Framework
+    - Transações atómicas no upload
+    - Cifra AES-256-GCM dos documentos em repouso
+    - TLS na ligação API - SQL Server
+5. **Auditoria e integridade dos logs**
+    - Logging estruturado com sanitização de inputs
+    - Logs append-only em sistema separado
+
+#### 2.5 Mitigações Associadas às Ameaças Prioritárias
+
+Com base nos resultados do DREAD, foram definidas mitigações específicas alinhadas com as ameaças de maior risco do RF02:
+
+| Ameaça                            | Mitigação                                                                                                                                                                                                |
+|-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Flood / DoS                       | Rate limiting por utilizador via. Quotas de tamanho máximo de ficheiros por processo. Alertas quando SQL Server atinge 80% de capacidade.          |
+| IDOR / BOLA via Process ID        | Verificação na BD em cada pedido de que o utilizador do JWT pertence ao processo solicitado. Registo de todos os acessos negados.                |
+| Upload de ficheiro malicioso      | Validação de magic bytes. Verificação do tamanho descomprimido. Remoção de macros via Open XML SDK. Antivírus no pipeline. |
+| Credenciais comprometidas         | JWT com expiração curta. Deteção de comportamento anómalo. Rate limiting no login. Bloqueio progressivo após tentativas falhadas.                                                                         |
+| SQL Injection                     | Acesso exclusivo via Entity Framework com queries parametrizadas. Conta de BD com menor privilégio (sem DROP/TRUNCATE). SAST no CI/CD.                        |
+| JWT forjado                       | `ValidateIssuer`, `ValidateAudience` e `ValidateLifetime` ativos no `TokenValidationParameters`. Allowlist de algoritmos com rejeição do `none`. Chave em local seguro.                               |
+| Aumento de role via BD            | Verificar sempre o role do utilizador na BD a partir do JWT. Separar conta de aplicação da conta de administração. SQL Server Audit para acessos diretos fora da API.                                    |
+| Ausência de atomicidade           | `TransactionScope` ou `DbTransaction` no Entity Framework para garantir que ficheiro e metadados são criados ou revertidos em conjunto.                                                                   |
+| Log injection                     | Serilog para template de logs. Sanitização de `\n`, `\r` e null bytes antes de escrever nos logs. Logs enviados para sistema separado.                                                            |
+| Metadados sensíveis em ficheiros  | Remoção de metadados de autor e histórico de revisões de PDF/DOCX via Open XML SDK e iTextSharp antes de cifrar e guardar no SQL Server.                                                                 |
+| Ausência de TLS na ligação à BD   | Adicionar `Encrypt=True;TrustServerCertificate=False` à connection string do SQL Server.                                                                                                                 |
+
+
 
 <br><br><br>
 

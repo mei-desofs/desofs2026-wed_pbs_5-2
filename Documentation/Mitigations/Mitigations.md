@@ -27,6 +27,48 @@ As mitigações propostas utilizam bibliotecas standard do .NET (como `Microsoft
 Isto garante que a implementação na Fase 2 é viável, não requer criptografia customizada e minimiza a superfície de ataque ao
 utilizar ferramentas amplamente testadas pela comunidade de segurança.
 
+<br><br><br>
+
+## 2. RF02 - Gestão Documental
+
+O plano de mitigação para o sistema de gestão documental baseia-se em padrões da indústria (OWASP ASVS) e na utilização de funcionalidades nativas de segurança do ecossistema .NET e SQL Server.
+
+| ID Ameaça | Nível de Risco | Ameaça Principal             | Mitigação Arquitetural e Técnica (Contramedida)                                                                                                                                                                                                                                                                                                     | Componente Responsável        |
+|:----------|:---------------|:-----------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------|
+| **EE2.1** | **Crítico**    | Flood / DoS                  | **Rate Limiting & Quotas:** Implementação de limite de pedidos por utilizador. Quotas de tamanho máximo de ficheiro. Throttling de API para operações de upload. Alertas automáticos quando o espaço em SQL Server atinge 80%.                            | Web API / SQL Server          |
+| **P2.2**  | **Crítico**    | IDOR / BOLA via Process ID   | **Verificação de Ownership do Processo:** Em cada pedido, o backend verifica na BD que o utilizador do JWT pertence ao processo solicitado antes de executar qualquer operação. Registo de todas as tentativas de acesso negadas com ID e Process ID.       | Web API (Authorization Layer) |
+| **P2.3**  | **Muito Alto** | Upload de ficheiro malicioso | **Validação de Conteúdo & Sanitização:** Verificação de magic bytes além da extensão. `XmlReaderSettings` com `DtdProcessing.Prohibit` e `XmlResolver = null` para prevenir XXE. Verificação do tamanho descomprimido com `ZipArchive`. Remoção de macros e metadados via Open XML SDK. Antivírus no pipeline.          | Web API (File Operations)     |
+| **EE2.1** | **Alto**       | Credenciais comprometidas    | **Gestão Segura de Sessões & Deteção de Anomalias:** JWT com expiração curta. Deteção de comportamento anormal. Rate limiting no login e bloqueio progressivo após tentativas falhadas.                                                                                            | Web API (Auth Layer)          |
+| **P2.4**  | **Alto**       | SQL Injection                | **ORM & Queries Parametrizadas:** Acesso exclusivo à BD via Entity Framework Core com queries parametrizadas. Princípio do menor privilégio na conta de BD. SAST automático no pipeline CI/CD para detetar uso indevido de `FromSqlRaw`.                                    | Database / CI/CD Pipeline     |
+| **P2.1**  | **Alto**       | JWT forjado                  | **Validação Estrita de JWT:** Configuração de `ValidateIssuer = true`, `ValidateAudience = true`, `ValidateLifetime = true` no `TokenValidationParameters`. Allowlist de algoritmos aceites com rejeição explícita do algoritmo `none`. Chave pública de verificação armazenada num local seguro, sem acesso a partir do código-fonte.              | Web API (Auth Layer)          |
+| **DS2.2** | **Alto**       | Aumento de role via BD       | **Separação de Contas & Auditoria de BD:** Verificar sempre o role do utilizador na BD a partir do JWT. Separar conta de aplicação da conta de administração do SQL Server. Ativar SQL Server Audit para detetar acessos diretos fora da API.                                                       | Database / Web API            |
+| **P2.4**  | **Médio**      | Ausência de atomicidade      | **Transações Atómicas:** Garantir que o ficheiro e o registo de metadados são criados ou revertidos em conjunto, sem estados inconsistentes na BD.                                                                                                                            | Database / Web API            |
+| **P2.4**  | **Médio**      | Log injection                | **Logging Estruturado com Sanitização:** Serilog com output templates tipados que impedem a interpretação de dados como diretivas de log. Sanitização de inputs antes de escrever nos logs, removendo caracteres de controlo. Logs enviados para sistema separado do servidor da aplicação.                                 | Web API (Logging Layer)       |
+| **DS2.1** | **Médio**      | Metadados sensíveis          | **Remoção de Metadados:** Remoção de metadados de autor, histórico de revisões e coordenadas GPS de ficheiros PDF/DOCX antes de cifrar e guardar no SQL Server.                                                                                                                                                       | Web API (File Operations)     |
+| **DS2.1** | **Médio**      | Ausência de TLS na ligação   | **Cifragem em Trânsito:** Garantir TLS na ligação API → BD. Validação do certificado do servidor para prevenir ataques man-in-the-middle internos.                                                                                                     | Infraestrutura / Database     |
+
+### Viabilidade Técnica (Feasibility)
+
+As mitigações propostas utilizam componentes standard do ecossistema .NET e SQL Server:
+
+| Componente             | Tecnologia                                        | Maturidade | Complexidade |
+|------------------------|---------------------------------------------------|------------|--------------|
+| Rate Limiting          | `Microsoft.AspNetCore.RateLimiting` (built-in)    | Stable     | Baixa        |
+| Validação de ficheiros | `System.IO.Compression.ZipArchive` + Open XML SDK | Production | Média        |
+| Proteção XXE           | `System.Xml.XmlReaderSettings` (built-in)         | Stable     | Baixa        |
+| ORM (EF Core)          | `Microsoft.EntityFrameworkCore`                   | Production | Baixa        |
+| Transações atómicas    | Entity Framework Transactions                     | Stable     | Baixa        |
+| Cifra AES-256-GCM      | `System.Security.Cryptography.AesGcm` (built-in) | Stable     | Média        |
+| Gestão de chaves       | Azure Key Vault + Managed Identity                | Production | Média        |
+| Remoção de metadados   | Open XML SDK + iTextSharp / PdfSharp              | Production | Média        |
+| Logging estruturado    | `Serilog` + `Serilog.Sinks.MSSqlServer`           | Production | Baixa        |
+| RBAC                   | ASP.NET Core Authorization Policies               | Stable     | Baixa        |
+| SQL Server Audit       | SQL Server built-in                               | Production | Baixa        |
+| SAST                   | GitHub Advanced Security / SonarQube              | Production | Baixa        |
+| TLS para BD            | SQL Server connection string (`Encrypt=True`)     | Stable     | Baixa        |
+
+**Conclusão:** Todas as mitigações são implementáveis com bibliotecas standard e testadas pela comunidade. Não requer desenvolvimento de criptografia customizada ou componentes experimentais. As componentes de maior complexidade são a validação de conteúdo de ficheiros DOCX e a remoção de metadados, mas o Open XML SDK e as APIs nativas do .NET cobrem todos os casos identificados.
+
 
 <br><br><br>
 
