@@ -14,6 +14,6 @@ The following table maps the grading criteria to the specific evidence and docum
 | **Risk Assessment**         | **10%** | Methodology, Prioritisation                 | [Risk_Assessment.md](../../Documentation/Risk_Assessment/Risk_Assessment.md) | Quantified risk scoring (DREAD/CVSS) used to justify mitigation priority for identified threats.    |
 | **Mitigations**             | **10%** | Clear & Feasible Mitigations                | [Mitigations.md](../../Documentation/Mitigations/Mitigations.md)             | Specific architectural counters linked to high-priority threats (e.g., Argon2id, TLS 1.3).          |
 | **Requirements**            | **20%** | Security Reqs (Auth, Data, Input)           | [FURPS+.md](../../Documentation/Requirements/FURPS+.md)                      | Justified requirements covering the 6 core pillars (Auth, Access, Data, Input, 3rd Party, Logging). |
-| **Security Testing**        | **10%** | Methodology, ASVS, Traceability             |                                                                              | Full ASVS Level 2 assessment; test cases mapped directly to threats and abuse cases.                |
+| **Security Testing**        | **10%** | Methodology, ASVS, Traceability             | [RF01.xlsx](../../Documentation/Security%20Testing/RF01.xlsx) · [RF03.xlsx](../../Documentation/Security%20Testing/RF03.xlsx)                                                                             | Full ASVS Level 2 assessment; test cases mapped directly to threats and abuse cases.                |
 
 ---
