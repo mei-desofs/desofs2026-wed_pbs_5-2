@@ -1,0 +1,82 @@
+@startuml
+' Configurações de Layout para evitar sobreposição de setas
+skinparam style strictuml
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 80
+
+' Forçar a leitura da esquerda para a direita
+left to right direction
+
+package "User Aggregate" {
+    abstract class User <<Aggregate Root>> {
+        - UserId: int
+        - Name: string
+        - Email: string
+        - PasswordHash: string
+        - CreatedAt: DateTime
+    }
+
+    class Lawyer {
+        - LicenseNumber: string
+        - Specialization: string
+    }
+
+    class LegalAssistant {
+        - EmployeeId: string
+        - Department: string
+    }
+
+    class Client {
+        - TaxId (NIF): string
+        - BillingAddress: string
+        - PhoneNumber: string
+    }
+
+    ' Herança
+    User <|-- Lawyer
+    User <|-- LegalAssistant
+    User <|-- Client
+}
+
+package "LegalProcess Aggregate" {
+    class LegalProcess <<Aggregate Root>> {
+        - ProcessId: GUID
+        - Title: string
+        - Description: string
+        - Status: ProcessStatus
+        - OpenedAt: DateTime
+    }
+
+    enum ProcessStatus {
+        Open
+        InAnalysis
+        Closed
+    }
+}
+
+package "Document Aggregate" {
+    class Document <<Aggregate Root>> {
+        - DocumentId: int
+        - FileName: string
+        - Extension: string
+        - Category: DocCategory
+        - FilePath: string
+    }
+
+    enum DocCategory {
+        Petition
+        Contract
+        Correspondence
+    }
+}
+
+' Relações de Domínio reescritas para fluir da esquerda para a direita
+Client "1" -- "1..*" LegalProcess
+Lawyer "1..*" -- "*" LegalProcess
+LegalAssistant "0..*" -- "*" LegalProcess
+
+LegalProcess "1" *-- "1..*" Document
+
+@enduml
