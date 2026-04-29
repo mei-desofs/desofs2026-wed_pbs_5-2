@@ -56,3 +56,28 @@ in [Phase1_Deliverable.md](Deliverables/Phase%201%20Threat%20Modeling/Phase1_Del
 | Mitigations             |  10%   | [Mitigations.md](Documentation/Mitigations/Mitigations.md)                                                                                                                                                                            |
 | Requirements            |  20%   | [FURPS+.md](Documentation/Requirements/FURPS+.md)                                                                                                                                                                                     |
 | Security Testing        |  10%   | [RF01.xlsx](Documentation/Security%20Testing/RF01.xlsx) · [RF02.xlsx](Documentation/Security%20Testing/RF02.xlsx) · [RF03.xlsx](Documentation/Security%20Testing/RF03.xlsx) · [RF04.xlsx](Documentation/Security%20Testing/RF04.xlsx) |
+
+## Phase 2 - Development and Testing
+
+### Running the application
+
+This guide explains how to set up, run, and interact with the LawyerApp during the development and testing phase.
+
+## 1. Configure Secrets to access hashicorp vault
+Run these commands inside `src/LawyerApp.API`:
+
+```bash
+dotnet user-secrets init
+dotnet user-secrets set "VaultSettings:ServerUri" "SECRET"
+dotnet user-secrets set "VaultSettings:Token" "your_provided_token"
+dotnet user-secrets set "VaultSettings:MountPoint" "your_mountpoint"
+dotnet user-secrets set "VaultSettings:SecretPath" "your_secretPath"
+```
+
+## 2. Run the Application
+
+- .NET CLI
+
+```bash
+dotnet run
+```
