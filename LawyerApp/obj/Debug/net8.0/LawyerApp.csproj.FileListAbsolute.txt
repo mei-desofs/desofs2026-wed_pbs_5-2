@@ -108,4 +108,13 @@ C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2
 C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\zh-Hans\Microsoft.CodeAnalysis.Workspaces.resources.dll
 C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\zh-Hant\Microsoft.CodeAnalysis.Workspaces.resources.dll
 C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\BCrypt.Net-Next.dll
+C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
+C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll
+C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\Microsoft.IdentityModel.Abstractions.dll
+C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\Microsoft.IdentityModel.JsonWebTokens.dll
+C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\Microsoft.IdentityModel.Logging.dll
+C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.dll
+C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\Microsoft.IdentityModel.Tokens.dll
+C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\bin\Debug\net8.0\System.IdentityModel.Tokens.Jwt.dll
 C:\Users\rafae\Desktop\Mestrado\Cyber\1A2S\DESOFS\Projeto\desofs2026-wed_pbs_5-2\LawyerApp\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt

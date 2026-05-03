@@ -17,7 +17,7 @@ namespace LawyerApp.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.11")
+                .HasAnnotation("ProductVersion", "8.0.26")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -91,11 +91,9 @@ namespace LawyerApp.Migrations
 
             modelBuilder.Entity("LawyerApp.Domain.Aggregates.UserAggregate.User", b =>
                 {
-                    b.Property<int>("UserId")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("UserId"));
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -117,7 +115,10 @@ namespace LawyerApp.Migrations
                         .HasMaxLength(13)
                         .HasColumnType("character varying(13)");
 
-                    b.HasKey("UserId");
+                    b.Property<int>("userRole")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
 
                     b.ToTable("Users");
 

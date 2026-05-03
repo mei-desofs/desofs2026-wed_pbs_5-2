@@ -1,7 +1,10 @@
-﻿using LawyerApp.Application.Interfaces.User;
+﻿using LawyerApp.Application.DTOS.Users;
+using LawyerApp.Application.Interfaces.Security;
+using LawyerApp.Application.Interfaces.User;
 using LawyerApp.Domain.Aggregates.UserAggregate;
-using LawyerApp.Domain.Aggregates.UserAggregate.Dto;
-using LawyerApp.Domain.Interfaces.Security;
+using LawyerApp.Domain.Aggregates.UserAggregate.Interfaces;
+using LawyerApp.Shared;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LawyerApp.Application.Services.UserAggregate
 {
@@ -16,28 +19,27 @@ namespace LawyerApp.Application.Services.UserAggregate
             _passwordHasher = passwordHasher;
         }
 
-        public async Task<ClientDto> CreateClientAsync(CreateClientDto createUserObject)
+        public async Task<Result<ClientDto>> CreateClientAsync(CreateClientDto client, CancellationToken cancellationToken)
         {
-            // Verificar se o email já existe
-            if (await _userRepository.EmailExistsAsync(createUserObject.Email))
+            var emailExists = _userRepository.EmailExistsAsync(client.Email, cancellationToken).Result;
+            if (emailExists)
             {
-                throw new Exception("Email já está em uso.");
+                return Result<ClientDto>.Failure(400, "Email already in use!");
             }
-            // Hash da password (exemplo simples, em produção use um método mais robusto)
-            var hashedPassword = _passwordHasher.HashPassword(createUserObject.Password);
+            var passwordHash = _passwordHasher.HashPassword(client.Password);
 
-            // Criar o utilizador
-            var user = new Client(createUserObject.Name, createUserObject.Email, hashedPassword, createUserObject.BillingAddress, createUserObject.PhoneNumber);
-            // Adicionar ao repositório
-            Client result = await _userRepository.AddClientAsync(user);
+            var clientToCreate = new CreateClientDto(client.Name, client.Email, passwordHash,client.BillingAddress,client.PhoneNumber);
+            var createdClient = await _userRepository.AddClientAsync(clientToCreate, cancellationToken);
 
-            return new ClientDto(result.Name, result.Email, result.BillingAddress, result.PhoneNumber);
+            return Result<ClientDto>.Success(new ClientDto(createdClient.Name, createdClient.Email));
         }
 
-        public async Task<List<ClientDto>> GetAllClientsAsync()
+        public async Task<Result<List<ClientDto>>> GetAllClientsAsync(CancellationToken cancellation)
         {
-            var clientList = await _userRepository.GetAllClientsAsync();
-            return clientList.Select(c => new ClientDto(c.Name, c.Email, c.BillingAddress, c.PhoneNumber)).ToList();
+            var clientList = await _userRepository.GetAllClientsAsync(cancellation);
+            var result = clientList.Select(c => new ClientDto(c.Name, c.Email)).ToList();
+            return Result<List<ClientDto>>.Success(result);
         }
+
     }
 }

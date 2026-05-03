@@ -1,18 +1,22 @@
 ﻿using LawyerApp.Domain.Aggregates.DocumentAggregate;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 public interface IDocumentRepository
 {
-    // Standard CRUD
-    Task<Document?> GetByIdAsync(Guid id);
-    Task<Document> AddAsync(Document document);
-    Task DeleteAsync(Guid id);
+    // GET
+    Task<Document?> GetByIdAsync(int id, CancellationToken cancellation);
+    Task<IEnumerable<Document>> GetDocumentsByProcessIdAsync(Guid processId, CancellationToken cancellation);
+    Task<Document?> GetByStoredFileNameAsync(string storedFileName, CancellationToken cancellation);
 
-    // Domain-Specific Methods
-    Task<IEnumerable<Document>> GetDocumentsByProcessIdAsync(Guid processId);
+    // ADD
+    Task<Document> AddAsync(Document document, CancellationToken cancellation);
 
-    // Vital for physical file retrieval (maps the GUID filename back to the real name)
-    Task<Document?> GetByStoredFileNameAsync(string storedFileName);
+    // UPDATE
+    Task UpdateAsync(Document document, CancellationToken cancellation);
+
+    // DELETE
+    Task DeleteAsync(int id, CancellationToken cancellation);
 }

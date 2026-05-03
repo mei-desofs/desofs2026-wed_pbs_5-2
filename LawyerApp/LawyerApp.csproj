@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.26" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.26" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -22,9 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="API\Documents\" />
-    <Folder Include="API\LegalProcess\" />
-    <Folder Include="Application\NovaPasta\" />
+    <Folder Include="API\Aggregates\Documents\" />
+    <Folder Include="API\Aggregates\LegalProcess\" />
     <Folder Include="Domain\Aggregates\DocumentAggregate\Dto\" />
     <Folder Include="Domain\Aggregates\LegalProcessAggregate\Dto\" />
   </ItemGroup>

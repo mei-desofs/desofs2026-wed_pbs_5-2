@@ -72,7 +72,12 @@ dotnet user-secrets set "VaultSettings:ServerUri" "SECRET"
 dotnet user-secrets set "VaultSettings:Token" "your_provided_token"
 dotnet user-secrets set "VaultSettings:MountPoint" "your_mountpoint"
 dotnet user-secrets set "VaultSettings:SecretPath" "your_secretPath"
+dotnet user-secrets set "Jwt:SecretKey" "your_secre_Key"
 ```
+The Vault Setting contain the information necessary to connect and retrieve secrets from the hashicorp cloud server.
+The respective secrets are the connections string to the postgreSQL database.
+
+The Jwt:SecretKey is the key used to create a cryptograph signature in the jwt token.
 
 ## 2. Run the Application
 

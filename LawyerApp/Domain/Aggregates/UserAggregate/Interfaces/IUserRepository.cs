@@ -1,19 +1,28 @@
-﻿using LawyerApp.Domain.Aggregates.UserAggregate;
+﻿using LawyerApp.Application.DTOS.Users;
+using LawyerApp.Domain.Aggregates.UserAggregate;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
-public interface IUserRepository
+namespace LawyerApp.Domain.Aggregates.UserAggregate.Interfaces
 {
-    // Standard CRUD
-    Task<User?> GetByIdAsync(Guid id);
-    Task<IEnumerable<Client>> GetAllClientsAsync();
-    Task<Client> AddClientAsync(Client user);
-  
-    Task UpdateAsync(User user);
-    Task DeleteAsync(Guid id);
+    public interface IUserRepository
+    {
+        // GET
+        Task<User?> GetByIdAsync(Guid id, CancellationToken cancellation);
+        Task<IEnumerable<Client>> GetAllClientsAsync(CancellationToken cancellation);
+        Task<User?> GetByEmailAsync(string email, CancellationToken cancellation);
+        Task<bool> EmailExistsAsync(string email, CancellationToken cancellation);
 
-    // Domain-Specific Methods
-    Task<User?> GetByEmailAsync(string email); // Essential for Login/Auth
-    Task<bool> EmailExistsAsync(string email); // Essential for Registration validation
+        // ADD
+        Task<User> AddAsync(User user, CancellationToken cancellation);
+        Task<User> AddClientAsync(CreateClientDto user, CancellationToken cancellation);
+
+        // UPDATE
+        Task UpdateAsync(User user, CancellationToken cancellation);
+
+        // DELETE
+        Task DeleteAsync(Guid id, CancellationToken cancellation);
+    }
 }

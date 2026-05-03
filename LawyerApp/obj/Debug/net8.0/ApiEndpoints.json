@@ -1,48 +1,44 @@
 [
   {
-    "ContainingType": "LawyerApp.API.ClientController",
-    "Method": "Post",
-    "RelativePath": "api/client/create",
+    "ContainingType": "LawyerApp.API.Login.LoginController",
+    "Method": "Login",
+    "RelativePath": "api/auth/login",
     "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
     "Parameters": [
       {
-        "Name": "client",
-        "Type": "LawyerApp.Domain.Aggregates.UserAggregate.Dto.CreateClientDto",
+        "Name": "loginDto",
+        "Type": "LawyerApp.Application.DTOS.Auth.LoginDTO",
         "IsRequired": true
       }
     ],
-    "ReturnTypes": [
-      {
-        "Type": "LawyerApp.Domain.Aggregates.UserAggregate.Dto.ClientDto",
-        "MediaTypes": [
-          "text/plain",
-          "application/json",
-          "text/json"
-        ],
-        "StatusCode": 200
-      }
-    ]
+    "ReturnTypes": []
   },
   {
-    "ContainingType": "LawyerApp.API.ClientController",
+    "ContainingType": "LawyerApp.API.Login.LoginController",
+    "Method": "Register",
+    "RelativePath": "api/auth/register",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "createClientDto",
+        "Type": "LawyerApp.Application.DTOS.Users.CreateClientDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "LawyerApp.API.Aggregates.User.Client.ClientController",
     "Method": "GetAll",
     "RelativePath": "api/client/get/all",
     "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,
     "Parameters": [],
-    "ReturnTypes": [
-      {
-        "Type": "System.Collections.Generic.IEnumerable\u00601[[LawyerApp.Domain.Aggregates.UserAggregate.Dto.ClientDto, LawyerApp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
-        "MediaTypes": [
-          "text/plain",
-          "application/json",
-          "text/json"
-        ],
-        "StatusCode": 200
-      }
-    ]
+    "ReturnTypes": []
   }
 ]

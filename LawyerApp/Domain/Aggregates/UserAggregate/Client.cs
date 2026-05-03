@@ -1,4 +1,6 @@
-﻿namespace LawyerApp.Domain.Aggregates.UserAggregate
+﻿using LawyerApp.Domain.Shared;
+
+namespace LawyerApp.Domain.Aggregates.UserAggregate
 {
     public class Client : User
     {
@@ -9,10 +11,11 @@
         private Client() : base() { }
 
         public Client(string name, string email, string passwordHash, string billingaddress,string phonenumber)
-            : base(name, email, passwordHash)
+            : base(name, email, passwordHash,Roles.Client)
         {
             BillingAddress = billingaddress;
             PhoneNumber = phonenumber;
         }
+
     }
 }

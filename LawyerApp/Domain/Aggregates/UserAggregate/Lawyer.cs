@@ -1,4 +1,6 @@
-﻿namespace LawyerApp.Domain.Aggregates.UserAggregate;
+﻿using LawyerApp.Domain.Shared;
+
+namespace LawyerApp.Domain.Aggregates.UserAggregate;
 
 public class Lawyer : User
 {
@@ -10,7 +12,7 @@ public class Lawyer : User
     private Lawyer() : base() { }
 
     public Lawyer(string name, string email, string passwordHash, string licenseNumber)
-        : base(name, email, passwordHash)
+        : base(name, email, passwordHash,Roles.Lawyer)
     {
         LicenseNumber = licenseNumber;
     }

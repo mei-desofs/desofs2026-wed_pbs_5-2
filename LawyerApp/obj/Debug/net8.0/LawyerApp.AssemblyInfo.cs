@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LawyerApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9b33acc4cb0f5b29f50291c195ddd24cfa622bbd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+16061ff7d6e6f2b8751b55ee82180c9ae72c70b7")]
 [assembly: System.Reflection.AssemblyProductAttribute("LawyerApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LawyerApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
