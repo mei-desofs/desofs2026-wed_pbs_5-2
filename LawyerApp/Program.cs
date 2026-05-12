@@ -66,3 +66,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Exposes Program to the integration test project
+public partial class Program { }

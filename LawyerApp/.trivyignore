@@ -1,0 +1,7 @@
+# Trivy ignore file
+# List CVE IDs that have been reviewed and accepted as false-positives or not
+# applicable to this deployment context.
+# Format: one CVE-ID per line, optionally with an inline comment.
+#
+# Example:
+# CVE-2021-12345 # Reviewed 2026-05-12: not exploitable in our config

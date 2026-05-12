@@ -1,0 +1,141 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+  schedule:
+    # Runs at 06:00 UTC every Monday
+    - cron: "0 6 * * 1"
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  DOCKER_IMAGE: lawyerapp
+
+jobs:
+  # ── Software Composition Analysis (SCA) ─────────────────────────────────
+  sca:
+    name: SCA — Vulnerable NuGet packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore packages
+        run: dotnet restore LawyerApp/LawyerApp.sln
+
+      - name: Check for vulnerable packages
+        run: |
+          dotnet list LawyerApp/LawyerApp.csproj package --vulnerable --include-transitive 2>&1 | \
+          tee vulnerable-packages.txt
+          if grep -q "has the following vulnerable packages" vulnerable-packages.txt; then
+            echo "::error::Vulnerable NuGet packages detected — see vulnerable-packages.txt"
+            exit 1
+          fi
+
+      - name: Upload SCA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sca-report
+          path: vulnerable-packages.txt
+
+  # ── SAST — Static Application Security Testing ───────────────────────────
+  sast:
+    name: SAST — Security Code Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install Security Code Scan analyzer
+        run: |
+          dotnet tool install --global security-scan --version 5.6.7 || true
+
+      - name: Restore & build with analyzers
+        run: |
+          dotnet restore LawyerApp/LawyerApp.sln
+          dotnet build LawyerApp/LawyerApp.sln -c Release \
+            /p:EnableNETAnalyzers=true \
+            /p:AnalysisMode=All \
+            /warnaserror:CA2100,CA3001,CA3002,CA3003,CA3006,CA3007,CA3010,CA3011,CA3012 \
+            2>&1 | tee sast-output.txt || true
+
+      - name: Upload SAST output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-report
+          path: sast-output.txt
+
+  # ── Container Image Scanning (Trivy) ─────────────────────────────────────
+  container-scan:
+    name: Container Scan — Trivy
+    runs-on: ubuntu-latest
+    needs: [ sca ]          # Only scan if dependencies are clean
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }} LawyerApp/
+
+      - name: Trivy — scan for CRITICAL/HIGH vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ env.DOCKER_IMAGE }}:${{ github.sha }}"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Trivy — full report (JSON)
+        if: always()
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ env.DOCKER_IMAGE }}:${{ github.sha }}"
+          format: "json"
+          output: "trivy-full-report.json"
+          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+
+      - name: Upload full Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: |
+            trivy-results.sarif
+            trivy-full-report.json
+
+  # ── Secret Detection ──────────────────────────────────────────────────────
+  secret-detection:
+    name: Secret Detection — Gitleaks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Full history required for Gitleaks
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
