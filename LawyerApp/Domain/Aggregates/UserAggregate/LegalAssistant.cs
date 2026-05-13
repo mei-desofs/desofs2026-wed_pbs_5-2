@@ -1,4 +1,4 @@
-﻿using LawyerApp.Domain.Shared;
+using LawyerApp.Domain.Shared;
 
 namespace LawyerApp.Domain.Aggregates.UserAggregate;
 

@@ -1,4 +1,4 @@
-﻿using LawyerApp.Application.DTOS.Users;
+using LawyerApp.Application.DTOS.Users;
 using LawyerApp.Domain.Aggregates.UserAggregate;
 using LawyerApp.Shared;
 
