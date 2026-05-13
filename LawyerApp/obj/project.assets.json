@@ -983,13 +983,10 @@
           }
         }
       },
-      "System.Text.Json/8.0.0": {
+      "System.Text.Json/8.0.5": {
         "type": "package",
-        "dependencies": {
-          "System.Text.Encodings.Web": "8.0.0"
-        },
         "compile": {
-          "lib/net8.0/_._": {
+          "lib/net8.0/System.Text.Json.dll": {
             "related": ".xml"
           }
         },
@@ -2899,10 +2896,10 @@
         "useSharedDesignerContext.txt"
       ]
     },
-    "System.Text.Json/8.0.0": {
-      "sha512": "OdrZO2WjkiEG6ajEFRABTRCi/wuXQPxeV6g8xvUJqdxMvvuCCEk86zPla8UiIQJz3durtUEbNyY/3lIhS0yZvQ==",
+    "System.Text.Json/8.0.5": {
+      "sha512": "0f1B50Ss7rqxXiaBJyzUu9bWFOO2/zSlifZ/UNMdiIpDYe4cY4LQQicP4nirK1OS31I43rn062UIJ1Q9bpmHpg==",
       "type": "package",
-      "path": "system.text.json/8.0.0",
+      "path": "system.text.json/8.0.5",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -2967,7 +2964,7 @@
         "lib/net8.0/System.Text.Json.xml",
         "lib/netstandard2.0/System.Text.Json.dll",
         "lib/netstandard2.0/System.Text.Json.xml",
-        "system.text.json.8.0.0.nupkg.sha512",
+        "system.text.json.8.0.5.nupkg.sha512",
         "system.text.json.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -3080,6 +3077,7 @@
       "Microsoft.VisualStudio.Azure.Containers.Tools.Targets >= 1.22.1",
       "Npgsql.EntityFrameworkCore.PostgreSQL >= 8.0.11",
       "Swashbuckle.AspNetCore >= 6.6.2",
+      "System.Text.Json >= 8.0.5",
       "VaultSharp >= 1.17.5.1",
       "xunit.extensibility.core >= 2.9.2"
     ]
@@ -3090,11 +3088,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj",
+      "projectUniqueName": "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj",
       "projectName": "LawyerApp",
-      "projectPath": "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj",
+      "projectPath": "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj",
       "packagesPath": "/Users/nunoa.cunha/.nuget/packages/",
-      "outputPath": "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp/obj/",
+      "outputPath": "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/Users/nunoa.cunha/.nuget/NuGet/NuGet.Config"
@@ -3154,6 +3152,10 @@
           "Swashbuckle.AspNetCore": {
             "target": "Package",
             "version": "[6.6.2, )"
+          },
+          "System.Text.Json": {
+            "target": "Package",
+            "version": "[8.0.5, )"
           },
           "VaultSharp": {
             "target": "Package",

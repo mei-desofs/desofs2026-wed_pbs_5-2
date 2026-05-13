@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp.Tests/LawyerApp.Tests.csproj": {}
+    "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp.Tests/LawyerApp.Tests.csproj": {}
   },
   "projects": {
-    "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp.Tests/LawyerApp.Tests.csproj": {
+    "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp.Tests/LawyerApp.Tests.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp.Tests/LawyerApp.Tests.csproj",
+        "projectUniqueName": "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp.Tests/LawyerApp.Tests.csproj",
         "projectName": "LawyerApp.Tests",
-        "projectPath": "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp.Tests/LawyerApp.Tests.csproj",
+        "projectPath": "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp.Tests/LawyerApp.Tests.csproj",
         "packagesPath": "/Users/nunoa.cunha/.nuget/packages/",
-        "outputPath": "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp.Tests/obj/",
+        "outputPath": "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp.Tests/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/nunoa.cunha/.nuget/NuGet/NuGet.Config"
@@ -27,8 +27,8 @@
             "framework": "net8.0",
             "targetAlias": "net8.0",
             "projectReferences": {
-              "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj": {
-                "projectPath": "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj"
+              "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj": {
+                "projectPath": "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj"
               }
             }
           }
@@ -117,14 +117,14 @@
         }
       }
     },
-    "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj": {
+    "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj",
+        "projectUniqueName": "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj",
         "projectName": "LawyerApp",
-        "projectPath": "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj",
+        "projectPath": "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj",
         "packagesPath": "/Users/nunoa.cunha/.nuget/packages/",
-        "outputPath": "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp/obj/",
+        "outputPath": "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/nunoa.cunha/.nuget/NuGet/NuGet.Config"
@@ -184,6 +184,10 @@
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.6.2, )"
+            },
+            "System.Text.Json": {
+              "target": "Package",
+              "version": "[8.0.5, )"
             },
             "VaultSharp": {
               "target": "Package",

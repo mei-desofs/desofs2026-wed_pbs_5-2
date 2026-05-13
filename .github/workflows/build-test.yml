@@ -9,7 +9,7 @@ on:
 env:
   DOTNET_VERSION: "8.0.x"
   PROJECT_PATH: "LawyerApp/LawyerApp.csproj"
-  TEST_PROJECT_PATH: "LawyerApp/LawyerApp.Tests/LawyerApp.Tests.csproj"
+  TEST_PROJECT_PATH: "LawyerApp.Tests/LawyerApp.Tests.csproj"
   COVERAGE_DIR: coverage
 
 jobs:

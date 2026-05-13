@@ -21,6 +21,7 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
     <PackageReference Include="VaultSharp" Version="1.17.5.1" />
     <PackageReference Include="xunit.extensibility.core" Version="2.9.2" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
   <ItemGroup>

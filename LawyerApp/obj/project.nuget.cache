@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "AmW/GkIGttE=",
+  "dgSpecHash": "oqTAOVm8Tzo=",
   "success": true,
-  "projectFilePath": "/Users/nunoa.cunha/Desktop/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj",
+  "projectFilePath": "/Users/nunoa.cunha/Desktop/Mestrado/desofs2026-wed_pbs_5-2/LawyerApp/LawyerApp.csproj",
   "expectedPackageFiles": [
     "/Users/nunoa.cunha/.nuget/packages/bcrypt.net-next/4.1.0/bcrypt.net-next.4.1.0.nupkg.sha512",
     "/Users/nunoa.cunha/.nuget/packages/fluentassertions/6.12.2/fluentassertions.6.12.2.nupkg.sha512",
@@ -53,7 +53,7 @@
     "/Users/nunoa.cunha/.nuget/packages/system.security.cryptography.protecteddata/4.4.0/system.security.cryptography.protecteddata.4.4.0.nupkg.sha512",
     "/Users/nunoa.cunha/.nuget/packages/system.text.encoding.codepages/6.0.0/system.text.encoding.codepages.6.0.0.nupkg.sha512",
     "/Users/nunoa.cunha/.nuget/packages/system.text.encodings.web/8.0.0/system.text.encodings.web.8.0.0.nupkg.sha512",
-    "/Users/nunoa.cunha/.nuget/packages/system.text.json/8.0.0/system.text.json.8.0.0.nupkg.sha512",
+    "/Users/nunoa.cunha/.nuget/packages/system.text.json/8.0.5/system.text.json.8.0.5.nupkg.sha512",
     "/Users/nunoa.cunha/.nuget/packages/system.threading.channels/6.0.0/system.threading.channels.6.0.0.nupkg.sha512",
     "/Users/nunoa.cunha/.nuget/packages/vaultsharp/1.17.5.1/vaultsharp.1.17.5.1.nupkg.sha512",
     "/Users/nunoa.cunha/.nuget/packages/xunit.abstractions/2.0.3/xunit.abstractions.2.0.3.nupkg.sha512",
