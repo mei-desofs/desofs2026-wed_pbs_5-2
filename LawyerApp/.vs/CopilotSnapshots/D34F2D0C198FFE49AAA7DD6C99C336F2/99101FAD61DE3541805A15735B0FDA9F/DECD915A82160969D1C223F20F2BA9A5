@@ -1,0 +1,39 @@
+﻿using LawyerApp.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace LawyerApp.Tests.Helpers;
+
+/// <summary>
+/// Replaces PostgreSQL with an in-memory EF Core provider so integration tests
+/// run without a real database connection.
+/// </summary>
+public class CustomWebApplicationFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("Testing");
+
+        builder.ConfigureServices(services =>
+        {
+            // Remove the real DbContext registration
+            var descriptor = services.SingleOrDefault(
+                d => d.ServiceType == typeof(DbContextOptions<LawyerAppDbContext>));
+
+            if (descriptor != null)
+                services.Remove(descriptor);
+
+            // Register an isolated in-memory database per test run
+            services.AddDbContext<LawyerAppDbContext>(options =>
+                options.UseInMemoryDatabase($"LawyerAppTestDb_{Guid.NewGuid()}"));
+
+            // Ensure schema is created
+            var sp = services.BuildServiceProvider();
+            using var scope = sp.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<LawyerAppDbContext>();
+            db.Database.EnsureCreated();
+        });
+    }
+}
