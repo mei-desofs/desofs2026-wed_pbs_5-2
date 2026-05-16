@@ -117,6 +117,11 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
           trivyignores: LawyerApp/.trivyignore
+          # Without this, the action overrides --severity to "all" for SARIF
+          # builds, so exit-code 1 triggers on MEDIUM/LOW findings too. We
+          # gate on CRITICAL/HIGH only — the full MEDIUM/LOW report is
+          # produced by the next "Trivy — full report (JSON)" step.
+          limit-severities-for-sarif: true
 
       - name: Upload Trivy SARIF to GitHub Security tab
         if: always()
