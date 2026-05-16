@@ -2,6 +2,15 @@
 
 **Project:** Lawyer App — Secure back-end for a legal consultancy firm, built following SSDLC principles.
 
+[![Build & Test](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/build-test.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/build-test.yml)
+[![CodeQL](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/codeql.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/codeql.yml)
+[![Semgrep](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/semgrep.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/semgrep.yml)
+[![Security Scan](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/security-scan.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/security-scan.yml)
+[![Trivy FS/IaC](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/trivy-config.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/trivy-config.yml)
+[![SBOM](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/sbom.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/sbom.yml)
+[![Secrets Scan](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/secrets-scan.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/secrets-scan.yml)
+[![Config Validation](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/config-validation.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/config-validation.yml)
+
 ---
 
 ## Repository Structure
@@ -58,6 +67,16 @@ in [Phase1_Deliverable.md](Deliverables/Phase%201%20Threat%20Modeling/Phase1_Del
 | Security Testing        |  10%   | [RF01.xlsx](Documentation/Security%20Testing/RF01.xlsx) · [RF02.xlsx](Documentation/Security%20Testing/RF02.xlsx) · [RF03.xlsx](Documentation/Security%20Testing/RF03.xlsx) · [RF04.xlsx](Documentation/Security%20Testing/RF04.xlsx) |
 
 ## Phase 2 - Development and Testing
+
+### CI/CD Pipeline
+
+Pipeline design, scanners adopted, mapping to the rubric, and the
+GitHub-side setup checklist are documented in
+[Documentation/Phase 2/Build_Test/Pipeline.md](Documentation/Phase%202/Build_Test/Pipeline.md).
+Workflows live under [`.github/workflows`](.github/workflows) and run on
+every pull request, push to `main` / `develop`, and weekly schedules.
+See also: [Test_Plan.md](Documentation/Phase%202/Build_Test/Test_Plan.md)
+and [Artifact_Scanning.md](Documentation/Phase%202/Build_Test/Artifact_Scanning.md).
 
 ### Running the application
 

@@ -1,0 +1,137 @@
+name: Configuration Validation
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  dockerfile-lint:
+    name: Hadolint (Dockerfile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Hadolint (SARIF output)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: LawyerApp/Dockerfile
+          format: sarif
+          output-file: hadolint.sarif
+          no-fail: true
+
+      - name: Upload Hadolint SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: hadolint.sarif
+          category: hadolint
+
+      - name: Hadolint (fail on error severity)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: LawyerApp/Dockerfile
+          failure-threshold: error
+
+  workflow-lint:
+    name: actionlint (GitHub workflows)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run actionlint
+        run: |
+          bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint -color
+
+  yaml-lint:
+    name: yamllint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Run yamllint
+        run: |
+          yamllint -d "{extends: default, rules: {line-length: disable, truthy: {check-keys: false}, document-start: disable, comments: {min-spaces-from-content: 1}, comments-indentation: disable}}" .github/
+
+  json-validation:
+    name: JSON / appsettings validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Validate appsettings*.json syntax
+        run: |
+          set -e
+          shopt -s globstar nullglob
+          fail=0
+          for f in LawyerApp/**/appsettings*.json; do
+            echo "Validating $f"
+            if ! jq empty "$f"; then
+              echo "::error file=$f::Invalid JSON"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Forbid plaintext secrets in appsettings*.json
+        run: |
+          set -e
+          shopt -s globstar nullglob
+          fail=0
+          for f in LawyerApp/**/appsettings*.json; do
+            if grep -E -i '(Password|Pwd|ApiKey|Secret|Token|ConnectionString)\s*=\s*[^"$ ]{4,}' "$f" >/dev/null 2>&1; then
+              if grep -E -i '(Password=postgres|Server=localhost|Trusted_Connection=true)' "$f" >/dev/null 2>&1 && [[ "$f" == *Development* ]]; then
+                echo "::warning file=$f::Development credential placeholder present (allowed)."
+              else
+                echo "::error file=$f::Possible plaintext secret committed."
+                fail=1
+              fi
+            fi
+          done
+          exit $fail
+
+  dotnet-format:
+    name: dotnet format (style)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore LawyerApp/LawyerApp.sln
+
+      - name: Verify format
+        run: dotnet format LawyerApp/LawyerApp.sln --verify-no-changes --severity warn --no-restore
+        continue-on-error: true

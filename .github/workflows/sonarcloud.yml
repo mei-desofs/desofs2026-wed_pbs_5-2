@@ -1,0 +1,80 @@
+name: SonarCloud (SAST)
+
+# OPTIONAL: requires SonarCloud account + SONAR_TOKEN secret.
+# See Documentation/Phase 2/Build_Test/Pipeline.md for setup instructions.
+# Trigger manually until SONAR_TOKEN is configured, then uncomment the
+# pull_request / push triggers below and replace <org> / <project-key>.
+
+on:
+  workflow_dispatch:
+  # pull_request:
+  #   branches: [main, develop]
+  # push:
+  #   branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  sonarcloud:
+    name: SonarCloud analysis
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Java (SonarScanner requirement)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: ~\sonar\cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Cache SonarScanner
+        id: cache-sonar-scanner
+        uses: actions/cache@v4
+        with:
+          path: .\.sonar\scanner
+          key: ${{ runner.os }}-sonar-scanner
+          restore-keys: ${{ runner.os }}-sonar-scanner
+
+      - name: Install SonarScanner
+        if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
+        shell: powershell
+        run: |
+          New-Item -Path .\.sonar\scanner -ItemType Directory -Force
+          dotnet tool update dotnet-sonarscanner --tool-path .\.sonar\scanner
+
+      - name: Build & Analyze
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: powershell
+        run: |
+          if (-not $env:SONAR_TOKEN) {
+            Write-Warning "SONAR_TOKEN not set — skipping SonarCloud analysis."
+            exit 0
+          }
+          # Replace <org> and <project-key> with your SonarCloud values.
+          .\.sonar\scanner\dotnet-sonarscanner begin `
+            /k:"<project-key>" `
+            /o:"<org>" `
+            /d:sonar.token="$env:SONAR_TOKEN" `
+            /d:sonar.host.url="https://sonarcloud.io"
+          dotnet build LawyerApp/LawyerApp.sln --configuration Release
+          .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
