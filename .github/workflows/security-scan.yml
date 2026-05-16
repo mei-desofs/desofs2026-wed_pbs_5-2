@@ -108,7 +108,7 @@ jobs:
         run: docker build -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }} LawyerApp/
 
       - name: Trivy — scan for CRITICAL/HIGH vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: "${{ env.DOCKER_IMAGE }}:${{ github.sha }}"
           format: "sarif"
@@ -126,7 +126,7 @@ jobs:
 
       - name: Trivy — full report (JSON)
         if: always()
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: "${{ env.DOCKER_IMAGE }}:${{ github.sha }}"
           format: "json"
