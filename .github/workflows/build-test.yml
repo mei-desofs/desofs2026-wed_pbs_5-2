@@ -2,20 +2,27 @@ name: Build & Test
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: ["main", "develop"]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: ["main", "develop"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 env:
   DOTNET_VERSION: "8.0.x"
   PROJECT_PATH: "LawyerApp/LawyerApp.csproj"
   TEST_PROJECT_PATH: "LawyerApp.Tests/LawyerApp.Tests.csproj"
   COVERAGE_DIR: coverage
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
 jobs:
   build-and-test:
-    name: Build & Test (.NET ${{ matrix.os }})
+    name: Build, Test & Publish
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout source
@@ -25,6 +32,13 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
         run: dotnet restore LawyerApp/LawyerApp.sln
@@ -54,3 +68,13 @@ jobs:
         with:
           name: coverage-report
           path: ${{ env.COVERAGE_DIR }}/**/coverage.cobertura.xml
+
+      - name: Publish (production payload)
+        run: dotnet publish ${{ env.PROJECT_PATH }} -c Release --no-build --output ./publish /p:UseAppHost=false
+
+      - name: Upload published artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lawyerapp-publish
+          path: ./publish
+          retention-days: 7

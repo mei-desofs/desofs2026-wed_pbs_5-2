@@ -284,11 +284,22 @@ dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj \
 
 ## 7. CI/CD Pipeline Summary
 
+Full design, mapping to the rubric, and the GitHub setup checklist are in
+[Pipeline.md](Pipeline.md).
+
 | Workflow | Trigger | Jobs |
 |---|---|---|
-| `build-test.yml` | push/PR to main, develop | Build + all tests + coverage artifacts |
-| `security-scan.yml` | push/PR to main, develop + weekly Monday | SCA, SAST, Trivy image scan, Gitleaks |
-| `trivy-config.yml` | push/PR to main | Trivy filesystem + IaC config scan |
+| `build-test.yml` | push / PR to main, develop, manual | Build (Release) + xUnit tests + coverage + publish artifact |
+| `codeql.yml` | push / PR / weekly / manual | GitHub CodeQL SAST (C#, `security-and-quality`) |
+| `semgrep.yml` | push / PR / weekly / manual | Semgrep SAST (`p/default`, `p/security-audit`, `p/csharp`, `p/dockerfile`, `p/secrets`) |
+| `sonarcloud.yml` | manual (until `SONAR_TOKEN` configured) | Optional SonarCloud analysis — see Pipeline.md §5 |
+| `dependency-review.yml` | PR | GitHub Dependency Review on PR diffs (fail on `high` or GPL/AGPL) |
+| `security-scan.yml` | push / PR / weekly / manual | SCA (`dotnet list --vulnerable`), .NET analyzers, Trivy image scan |
+| `trivy-config.yml` | push / PR / manual | Trivy filesystem + IaC/Dockerfile config scan (fails on CRITICAL/HIGH) |
+| `sbom.yml` | push / PR / weekly / manual | CycloneDX SBOM (solution) + Syft SBOM (image) + Grype scan |
+| `secrets-scan.yml` | push / PR / weekly / manual | Gitleaks (full history) + TruffleHog (verified-only) |
+| `config-validation.yml` | push / PR / manual | Hadolint + actionlint + yamllint + JSON/appsettings validation + `dotnet format` |
+| `dependabot.yml` (config) | weekly schedule | NuGet + GitHub Actions + Docker base-image updates |
 
 ---
 
