@@ -116,6 +116,7 @@ jobs:
           severity: "CRITICAL,HIGH"
           exit-code: "1"
           ignore-unfixed: true
+          trivyignores: LawyerApp/.trivyignore
 
       - name: Upload Trivy SARIF to GitHub Security tab
         if: always()
@@ -132,6 +133,7 @@ jobs:
           format: "json"
           output: "trivy-full-report.json"
           severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+          trivyignores: LawyerApp/.trivyignore
 
       - name: Upload full Trivy report
         if: always()

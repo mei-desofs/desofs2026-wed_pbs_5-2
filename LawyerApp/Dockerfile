@@ -27,4 +27,11 @@ RUN dotnet publish "./LawyerApp.csproj" -c $BUILD_CONFIGURATION -o /app/publish 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+# Healthcheck management is delegated to the orchestrator (Kubernetes
+# liveness/readiness probes, ECS health checks, etc.). Declaring
+# `HEALTHCHECK NONE` explicitly documents this decision and satisfies the
+# Trivy/Hadolint DS-0026 lint without baking a redundant in-container probe.
+HEALTHCHECK NONE
+
 ENTRYPOINT ["dotnet", "LawyerApp.dll"]
