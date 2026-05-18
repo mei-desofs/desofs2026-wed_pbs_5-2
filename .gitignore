@@ -9,3 +9,5 @@
 /.idea/*
 .dll
 .cache
+bin/
+obj/
