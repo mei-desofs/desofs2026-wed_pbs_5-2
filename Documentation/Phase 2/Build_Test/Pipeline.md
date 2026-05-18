@@ -183,7 +183,7 @@ novos em dependências fixadas.
 ### Deteção de segredos
 - **Gitleaks** — histórico git completo, com allowlist no `.gitleaks.toml`
   para falsos positivos documentados.
-- **TruffleHog** — intervalo do diff do PR, modo verified-only.
+- **TruffleHog** — binário direto (sem action), modo verified-only; diff do PR em pull_request, histórico completo em push.
 
 ### Higiene da pipeline
 - **Tokens de privilégio mínimo** em cada workflow (bloco `permissions:`).
@@ -446,10 +446,18 @@ organização). O binário em si é licenciado MIT e gratuito.
 #### Job 2 — `trufflehog`
 **Timeout:** 10 min.
 
+Corremos o **binário trufflehog diretamente** em vez do
+`trufflesecurity/trufflehog@main`. A action embrulha uma imagem Docker
+em `ghcr.io` cuja transferência expira intermitentemente nos runners
+GitHub-hosted (`docker: context deadline exceeded`). O binário em si
+não tem dependências externas em runtime e instala em segundos.
+
 | # | Passo | O que faz | Porquê |
 |---|---|---|---|
-| 1 | `Checkout (full history)` | Padrão. | — |
-| 2 | `TruffleHog (PR diff)` ou `TruffleHog (full history)` | `trufflesecurity/trufflehog@main` com `--results=verified,unknown`. Em PRs faz scan entre base e head; em push/schedule/dispatch faz scan ao histórico completo. | "Verified" significa que o TruffleHog valida ativamente a credencial via API ao emissor. Reduz drasticamente os falsos positivos em comparação com análise só por entropia. A divisão entre dois passos evita o erro "BASE and HEAD commits are the same" em pushes para a default branch. |
+| 1 | `Checkout (full history)` | `fetch-depth: 0`. | Necessário para `--since-commit` em PRs e para scan ao histórico completo em push. |
+| 2 | `Install trufflehog` | curl da release `v3.95.3` + tar para `/usr/local/bin/`. | Evita a action e o pull da imagem em `ghcr.io`. |
+| 3 | `TruffleHog (PR diff)` | `trufflehog git file://. --since-commit "$BASE_SHA" --branch "$HEAD_SHA" --results=verified --fail --no-update`. Só corre em pull_request. | Compara o diff entre base e head do PR; `--results=verified` significa que o TruffleHog confirmou a credencial contra a API do emissor (sem falsos positivos por definição). |
+| 4 | `TruffleHog (full history)` | `trufflehog git file://. --results=verified --fail --no-update`. Corre em push / schedule / dispatch. | Análise ao histórico completo. Mantemos `--results=verified` para evitar ruído de placeholders em documentação (por exemplo, `Password=postgres` em exemplos). O Gitleaks corre em paralelo com o ruleset por defeito e cobre o caso "unknown". |
 
 ---
 
@@ -612,7 +620,7 @@ onde estão os seus limites.
 | **yamllint** | Configuração (YAML) | Higiene genérica de YAML. | — | — |
 | **`jq`** | Configuração (JSON) | Ferramenta CLI standard para JSON. | Python `json.tool`. | — |
 | **Gitleaks** | Segredos | Open-source, madura, configurável. | TruffleHog (também na pipeline). | gitleaks-action@v2 precisa de licença paga para orgs — usamos o binário diretamente. |
-| **TruffleHog** | Segredos | O modo "verified" valida credenciais contra a API do emissor. Taxa de falsos positivos muito mais baixa do que análise só por entropia. | Gitleaks sozinho. | Mais lenta do que Gitleaks; corremos só no diff do PR. |
+| **TruffleHog** | Segredos | O modo "verified" valida credenciais contra a API do emissor. Taxa de falsos positivos muito mais baixa do que análise só por entropia. | Gitleaks sozinho. | Mais lenta do que o Gitleaks. A action upstream depende de uma imagem ghcr.io que falha por timeout — corremos o binário diretamente. |
 
 ## 8. Executar cada verificação localmente
 
@@ -719,8 +727,17 @@ gitleaks detect --source . --config .gitleaks.toml --redact --verbose
 
 ### TruffleHog (diff do PR)
 ```bash
-docker run --rm -v "$(pwd):/repo" -w /repo trufflesecurity/trufflehog:latest \
-  git file:///repo --since-commit=origin/main --results=verified,unknown
+# Instalar uma vez
+brew install trufflehog                # macOS
+# ou descarregar o binário de https://github.com/trufflesecurity/trufflehog/releases
+
+# Análise full-history (espelha o passo de CI)
+trufflehog git "file://$PWD" --results=verified --fail --no-update
+
+# Diff entre dois commits (espelha o passo de PR em CI)
+trufflehog git "file://$PWD" \
+  --since-commit "$(git merge-base origin/main HEAD)" \
+  --branch HEAD --results=verified --fail --no-update
 ```
 
 ### Guard de JSON e segredos em texto em appsettings
@@ -927,10 +944,41 @@ DS-0026). Se a regra não puder ser corrigida, adicionar o ID da regra a
 `.trivyignore`.
 
 ### TruffleHog falha em push para main com "BASE and HEAD commits are the same"
-Quando se faz push para a default branch, o input `base` e o `head` do
-TruffleHog são o mesmo commit, pelo que a action recusa correr. Correção:
-dividir o job em dois passos com `if:` — em pull_request passa
-base/head; nos outros disparos omite-os e corre o histórico completo.
+Quando se faz push para a default branch, o input `base` e o `head` da
+action são o mesmo commit, pelo que a action recusa correr. Correção
+inicial: dividir o job em dois passos com `if:`. Correção definitiva
+(aplicada): substituir a action pelo binário diretamente (ver erro
+seguinte).
+
+### TruffleHog: `docker: Head https://ghcr.io/v2/.../manifests/latest: context deadline exceeded`
+A action `trufflesecurity/trufflehog@main` faz pull de uma imagem
+Docker em `ghcr.io` que intermitentemente expira nos runners
+GitHub-hosted (timeout de cliente). Correção: deixar de usar a action,
+instalar e correr o binário diretamente:
+
+```yaml
+- name: Install trufflehog
+  env:
+    TRUFFLEHOG_VERSION: 3.95.3
+  run: |
+    curl -sSfL -o trufflehog.tar.gz \
+      "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz"
+    tar -xzf trufflehog.tar.gz trufflehog
+    sudo mv trufflehog /usr/local/bin/
+
+- name: TruffleHog (full history)
+  run: trufflehog git "file://${PWD}" --results=verified --fail --no-update
+```
+
+### TruffleHog falha em push para main com `unverified_secrets: N`
+Mudámos da action para o binário; o binário, sem `--since-commit`,
+analisa o histórico completo. Findings antigos em ficheiros de
+documentação (por exemplo, `Password=postgres` num exemplo) são
+classificados como "unknown" pelo detector SQLServer. Correção:
+filtrar para `--results=verified` apenas — credenciais que o TruffleHog
+consegue confirmar contra a API do emissor (sem falsos positivos por
+definição). O Gitleaks corre em paralelo com o ruleset por defeito e
+cobre o caso "unknown".
 
 ### `git push` 403 (conta GitHub errada)
 O `gh auth setup-git` adicionou um credential helper específico para

@@ -167,11 +167,16 @@ Dois analisadores correm em paralelo para apanhar fugas a partir de
   (`fetch-depth: 0`) e corre o conjunto de regras predefinido do
   Gitleaks contra cada commit. Carrega um artefacto de resumo e escreve
   anotações no PR em caso de ocorrências.
-- **TruffleHog** — job `trufflehog`. Em PRs analisa o diff
-  entre base e head, e em push/schedule/dispatch analisa o histórico
-  completo, sempre com `--results=verified,unknown` para nos focarmos em
-  credenciais que pode validar ativamente, reduzindo drasticamente os
-  falsos positivos de "isto parece uma string hexadecimal".
+- **TruffleHog** — job `trufflehog`. Corre o binário diretamente
+  (versão `v3.95.3`) em vez da action `trufflesecurity/trufflehog@main`
+  porque a action depende de uma imagem em `ghcr.io` que falha por
+  timeout nos runners GitHub-hosted. Em PRs analisa o diff entre base
+  e head; em push/schedule/dispatch analisa o histórico completo,
+  sempre com `--results=verified` para nos focarmos em credenciais que
+  o TruffleHog pode confirmar contra a API do emissor (sem falsos
+  positivos por definição). Resultados "unknown" (alta entropia mas
+  sem verificação) são deixados para o Gitleaks, que corre em paralelo
+  com o ruleset por defeito.
 
 Ambos os jobs fazem o workflow falhar em qualquer ocorrência,
 bloqueando o PR.
