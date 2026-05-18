@@ -1,10 +1,8 @@
 ﻿using LawyerApp.Application.DTOS.Users;
 using LawyerApp.Application.Interfaces.Security;
 using LawyerApp.Application.Interfaces.User;
-using LawyerApp.Domain.Aggregates.UserAggregate;
 using LawyerApp.Domain.Aggregates.UserAggregate.Interfaces;
 using LawyerApp.Shared;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LawyerApp.Application.Services.UserAggregate
 {
@@ -21,7 +19,7 @@ namespace LawyerApp.Application.Services.UserAggregate
 
         public async Task<Result<ClientDto>> CreateClientAsync(CreateClientDto client, CancellationToken cancellationToken)
         {
-            var emailExists = _userRepository.EmailExistsAsync(client.Email, cancellationToken).Result;
+            var emailExists = await _userRepository.EmailExistsAsync(client.Email, cancellationToken);
             if (emailExists)
             {
                 return Result<ClientDto>.Failure(400, "Email already in use!");

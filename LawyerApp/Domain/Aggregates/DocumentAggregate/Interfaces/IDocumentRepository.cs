@@ -1,4 +1,4 @@
-﻿using LawyerApp.Domain.Aggregates.DocumentAggregate;
+using LawyerApp.Domain.Aggregates.DocumentAggregate;
 using System;
 using System.Collections.Generic;
 using System.Threading;

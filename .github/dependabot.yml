@@ -1,0 +1,78 @@
+version: 2
+updates:
+  # NuGet dependencies for the .NET app
+  - package-ecosystem: nuget
+    directory: /LawyerApp
+    schedule:
+      interval: weekly
+      day: monday
+      time: '03:00'
+      timezone: Europe/Lisbon
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - nuget
+    commit-message:
+      prefix: chore(deps)
+      include: scope
+    groups:
+      microsoft:
+        patterns:
+          - Microsoft.*
+      ef-core:
+        patterns:
+          - Microsoft.EntityFrameworkCore*
+          - Npgsql*
+      security:
+        patterns:
+          - BCrypt.*
+          - VaultSharp*
+
+  # NuGet dependencies for the test project
+  - package-ecosystem: nuget
+    directory: /LawyerApp.Tests
+    schedule:
+      interval: weekly
+      day: monday
+      time: '03:15'
+      timezone: Europe/Lisbon
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+      - nuget
+      - tests
+    commit-message:
+      prefix: chore(test-deps)
+      include: scope
+
+  # GitHub Actions versions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '03:30'
+      timezone: Europe/Lisbon
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: chore(ci)
+      include: scope
+
+  # Docker base images
+  - package-ecosystem: docker
+    directory: /LawyerApp
+    schedule:
+      interval: weekly
+      day: monday
+      time: '04:00'
+      timezone: Europe/Lisbon
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: chore(docker)
+      include: scope

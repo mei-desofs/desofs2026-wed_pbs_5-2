@@ -1,0 +1,131 @@
+name: SBOM Generation
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  schedule:
+    - cron: '37 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOLUTION: LawyerApp/LawyerApp.sln
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  cyclonedx-solution:
+    name: CycloneDX SBOM (.NET solution)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install CycloneDX tool
+        run: dotnet tool install --global CycloneDX
+
+      - name: Generate SBOM (JSON)
+        run: dotnet CycloneDX ${{ env.SOLUTION }} --output ./sbom --json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: ./sbom
+          retention-days: 90
+
+  syft-image:
+    name: Syft SBOM (Docker image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (local, no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./LawyerApp
+          file: ./LawyerApp/Dockerfile
+          push: false
+          load: true
+          tags: lawyerapp:sbom-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate Syft SBOM (SPDX)
+        uses: anchore/sbom-action@v0
+        with:
+          image: lawyerapp:sbom-${{ github.sha }}
+          format: spdx-json
+          artifact-name: lawyerapp-image-sbom.spdx.json
+          upload-artifact: true
+          upload-artifact-retention: 90
+
+  grype-second-opinion:
+    name: Grype (independent image scan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./LawyerApp
+          file: ./LawyerApp/Dockerfile
+          push: false
+          load: true
+          tags: lawyerapp:grype-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Grype scan
+        uses: anchore/scan-action@v4
+        id: grype
+        with:
+          image: lawyerapp:grype-${{ github.sha }}
+          fail-build: false
+          severity-cutoff: high
+          output-format: sarif
+
+      - name: Inspect Grype SARIF
+        id: sarif_check
+        if: always()
+        run: |
+          path="${{ steps.grype.outputs.sarif }}"
+          if [ -n "$path" ] && [ -s "$path" ]; then
+            echo "found=true"  >> "$GITHUB_OUTPUT"
+            echo "path=$path"  >> "$GITHUB_OUTPUT"
+            echo "Grype SARIF: $path ($(wc -c < "$path") bytes)"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "Grype produced no SARIF content (no findings at or above the severity cutoff) — nothing to upload."
+          fi
+
+      - name: Upload Grype SARIF
+        if: always() && steps.sarif_check.outputs.found == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.sarif_check.outputs.path }}
+          category: grype

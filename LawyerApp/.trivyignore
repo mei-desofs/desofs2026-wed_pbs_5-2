@@ -1,0 +1,18 @@
+# Trivy ignore file
+# List CVE IDs that have been reviewed and accepted as false positives or not
+# applicable to this deployment context.
+# Format: one CVE-ID per line, optionally with an inline comment.
+#
+# Review process: any addition must include the date reviewed, the upstream
+# package, and a one-line justification. Re-audit quarterly — if the
+# upstream image rebuilds with the fixed package version, remove the entry.
+
+# ── HIGH-severity CVEs inherited from mcr.microsoft.com/dotnet/aspnet:8.0 ──
+# All five fixes are present in upstream Debian 12 (bookworm-security) but
+# the Microsoft base image has not yet been rebuilt against the patched
+# packages. We do not run apt-get upgrade inside our build to avoid
+# divergence from Microsoft's curated layers. Tracked for re-evaluation
+# whenever the base image is rebuilt — Dependabot raises the rebase PR.
+CVE-2026-0861    # Reviewed 2026-05-17: libc-bin / libc6 — glibc 2.36-9+deb12u14 pending Microsoft image rebuild
+CVE-2026-4878    # Reviewed 2026-05-17: libcap2 — 1:2.66-4+deb12u3 pending Microsoft image rebuild
+CVE-2026-29111   # Reviewed 2026-05-17: libsystemd0 / libudev1 — 252.39-1~deb12u2 pending Microsoft image rebuild

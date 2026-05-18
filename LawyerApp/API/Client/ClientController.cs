@@ -1,5 +1,5 @@
 using LawyerApp.Application.Interfaces.User;
-using LawyerApp.Domain.Aggregates.UserAggregate.Dto;
+using LawyerApp.Application.DTOS.Users;
 using Microsoft.AspNetCore.Mvc;
 
 namespace LawyerApp.API
@@ -18,17 +18,27 @@ namespace LawyerApp.API
         }
 
         [HttpGet("get/all")]
-        public async Task<IEnumerable<ClientDto>> GetAll()
+        public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
         {
-            var allClients = await _clientService.GetAllClientsAsync();
-            return allClients;
+            var result = await _clientService.GetAllClientsAsync(cancellationToken);
+            if (result.IsFailure)
+            {
+                return BadRequest(result.Error);
+            }
+
+            return Ok(result.Value);
         }
 
         [HttpPost("create")]
-        public async Task<ClientDto> Post([FromBody] CreateClientDto client)
+        public async Task<IActionResult> Post([FromBody] CreateClientDto client, CancellationToken cancellationToken)
         {
-            var result = await _clientService.CreateClientAsync(client);
-            return result;
+            var result = await _clientService.CreateClientAsync(client, cancellationToken);
+            if (result.IsFailure)
+            {
+                return BadRequest(result.Error);
+            }
+
+            return Ok(result.Value);
         }
 
 
