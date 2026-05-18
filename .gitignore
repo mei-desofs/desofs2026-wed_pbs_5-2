@@ -7,6 +7,10 @@
 /dataSources/
 /dataSources.local.xml
 /.idea/*
+.dll
+.cache
+bin/
+obj/
 
 # OS files
 .DS_Store

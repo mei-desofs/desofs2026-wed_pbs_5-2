@@ -11,7 +11,8 @@
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
-    <PackageReference Include="FluentAssertions" Version="6.12.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.26" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.26" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -20,14 +21,11 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
     <PackageReference Include="VaultSharp" Version="1.17.5.1" />
-    <PackageReference Include="xunit.extensibility.core" Version="2.9.2" />
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="API\Documents\" />
-    <Folder Include="API\LegalProcess\" />
-    <Folder Include="Application\NovaPasta\" />
+    <Folder Include="API\Aggregates\Documents\" />
+    <Folder Include="API\Aggregates\LegalProcess\" />
     <Folder Include="Domain\Aggregates\DocumentAggregate\Dto\" />
     <Folder Include="Domain\Aggregates\LegalProcessAggregate\Dto\" />
   </ItemGroup>

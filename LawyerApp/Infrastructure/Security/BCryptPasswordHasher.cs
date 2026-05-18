@@ -1,5 +1,5 @@
-﻿using LawyerApp.Domain.Interfaces.Security;
-using BCrypt.Net;
+﻿using BCrypt.Net;
+using LawyerApp.Application.Interfaces.Security;
 
 namespace LawyerApp.Infrastructure.Security
 {
