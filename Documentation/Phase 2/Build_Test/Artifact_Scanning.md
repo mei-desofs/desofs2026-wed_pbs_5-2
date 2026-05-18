@@ -1,8 +1,14 @@
 # Artifact Scanning Configuration — LawyerApp
 
-**Version:** 1.0  
-**Date:** 2026-05-12  
-**Author:** Group Wed PBS 5-2 — Build & Test (Member 2)
+**Version:** 1.1
+**Date:** 2026-05-17
+**Author:** Group Wed PBS 5-2 — Build & Test
+
+> Companion to [Pipeline.md](Pipeline.md) — the full pipeline operator's
+> reference. This document focuses specifically on **artifact scanning**
+> (scanners, severity policy, suppression process). For workflow design,
+> trigger matrix, local reproduction, troubleshooting, glossary, and
+> setup checklist, see [Pipeline.md](Pipeline.md).
 
 ---
 

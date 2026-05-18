@@ -1,9 +1,12 @@
 # Test Plan — LawyerApp
 
-**Version:** 1.0  
-**Date:** 2026-05-12  
-**Author:** Group Wed PBS 5-2 — Build & Test (Member 2)  
+**Version:** 1.0
+**Date:** 2026-05-12
+**Author:** Group Wed PBS 5-2 — Build & Test
 **Project:** LawyerApp — Secure Legal Management Back-end
+
+> See also [Pipeline.md](Pipeline.md) — pipeline operator's reference,
+> covers how this test plan is executed in CI (`build-test.yml`).
 
 ---
 
