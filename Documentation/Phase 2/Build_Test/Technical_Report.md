@@ -1,110 +1,120 @@
-# Technical Report — LawyerApp
+# Relatório Técnico — LawyerApp
 
-**Version:** 1.0  
-**Date:** 2026-05-12  
-**Authors:** Group Wed PBS 5-2  
-**Project:** LawyerApp — Secure Legal Management Back-end (DESOFS 2026)
+**Versão:** 1.0
+**Data:** 2026-05-12
+**Autores:** Grupo Wed PBS 5-2
+**Projeto:** LawyerApp — Back-end Seguro de Gestão Legal (DESOFS 2026)
 
 ---
 
-## 1. Project Overview
+## 1. Visão geral do projeto
 
-LawyerApp is a .NET 8 ASP.NET Core REST API implementing a secure back-end for a legal consultancy firm. It follows Clean Architecture and SSDLC (Secure Software Development Lifecycle) principles.
+O LawyerApp é uma REST API em .NET 8 / ASP.NET Core que implementa um
+back-end seguro para uma consultora jurídica. Segue os princípios de
+Clean Architecture e SSDLC (Secure Software Development Lifecycle).
 
-### Technology Stack
+### Stack tecnológico
 
-| Component | Technology |
+| Componente | Tecnologia |
 |---|---|
 | Runtime | .NET 8 / ASP.NET Core 8 |
-| Language | C# 12 |
-| Architecture | Clean Architecture (Domain · Application · Infrastructure · API) |
-| Database | PostgreSQL (Aiven managed cloud) |
+| Linguagem | C# 12 |
+| Arquitetura | Clean Architecture (Domain · Application · Infrastructure · API) |
+| Base de dados | PostgreSQL (cloud gerido Aiven) |
 | ORM | Entity Framework Core 8 (Npgsql) |
-| Password Hashing | BCrypt.Net-Next (work factor 10) |
-| Secret Management | HashiCorp Vault (via VaultSharp) |
-| API Documentation | Swagger / Swashbuckle |
-| Containerisation | Docker (multi-stage build) |
+| Hashing de palavra-passe | BCrypt.Net-Next (work factor 10) |
+| Gestão de segredos | HashiCorp Vault (via VaultSharp) |
+| Documentação da API | Swagger / Swashbuckle |
+| Contentorização | Docker (build multi-stage) |
 
 ---
 
-## 2. Architecture
+## 2. Arquitetura
 
 ```
 LawyerApp/
-├── API/                        # Controllers — HTTP boundary
+├── API/                        # Controladores — fronteira HTTP
 │   └── Client/
 │       └── ClientController.cs
-├── Application/                # Use-case services (no framework deps)
+├── Application/                # Serviços de casos de uso (sem deps de framework)
 │   ├── Interfaces/User/
 │   │   └── IClient.cs
 │   └── Services/UserAggregate/
 │       └── ClientService.cs
-├── Domain/                     # Core business entities & interfaces
+├── Domain/                     # Entidades e interfaces do domínio nuclear
 │   ├── Aggregates/
-│   │   ├── UserAggregate/      # User (abstract), Client, Lawyer, LegalAssistant
+│   │   ├── UserAggregate/      # User (abstrato), Client, Lawyer, LegalAssistant
 │   │   ├── DocumentAggregate/  # Document, DocCategory
 │   │   └── LegalProcessAggregate/ # LegalProcess, ProcessStatus
 │   └── Interfaces/Security/
 │       └── IPasswordHasher.cs
-├── Infrastructure/             # EF Core, repositories, BCrypt, Vault
+├── Infrastructure/             # EF Core, repositórios, BCrypt, Vault
 │   ├── HashiCorp/
-│   ├── Persistence/            # LawyerAppDbContext + Repositories
+│   ├── Persistence/            # LawyerAppDbContext + Repositórios
 │   └── Security/
-├── Migrations/                 # EF Core migration history
-├── LawyerApp.Tests/            # Test project (xUnit)
+├── Migrations/                 # Histórico de migrations do EF Core
+├── LawyerApp.Tests/            # Projeto de testes (xUnit)
 ├── Dockerfile
 └── appsettings.json
 ```
 
-### Domain Model Summary
+### Resumo do modelo de domínio
 
-- **User** (abstract, TPH discriminator): base class with `Name`, `Email`, `PasswordHash`, `CreatedAt`.
-  - **Client**: adds `BillingAddress`, `PhoneNumber`.
-  - **Lawyer**: adds `LicenseNumber`, `Specialization`.
-  - **LegalAssistant**: specialised staff role.
-- **LegalProcess**: identified by a GUID (generated in the domain to guarantee ID availability before OS folder creation). Linked to a `Lawyer` and a `Client`.
-- **Document**: linked to a `LegalProcess`. Stores a random `StoredFileName` (GUID-based) to prevent path traversal and filename enumeration.
+- **User** (abstrato, discriminador TPH): classe base com `Name`,
+  `Email`, `PasswordHash`, `CreatedAt`.
+  - **Client**: acrescenta `BillingAddress`, `PhoneNumber`.
+  - **Lawyer**: acrescenta `LicenseNumber`, `Specialization`.
+  - **LegalAssistant**: função de staff especializado.
+- **LegalProcess**: identificado por um GUID (gerado no domínio para
+  garantir a disponibilidade do ID antes da criação de pastas no SO).
+  Ligado a um `Lawyer` e a um `Client`.
+- **Document**: ligado a um `LegalProcess`. Armazena um
+  `StoredFileName` aleatório (baseado em GUID) para prevenir path
+  traversal e enumeração de nomes de ficheiros.
 
 ---
 
-## 3. Security Controls
+## 3. Controlos de segurança
 
-| Control | Implementation |
+| Controlo | Implementação |
 |---|---|
-| Password hashing | BCrypt with random salt per hash (`BCryptPasswordHasher`) |
-| No plain-text credentials in DB | `ClientService.CreateClientAsync` hashes before persisting |
-| No credentials in API responses | `ClientDto` has no `PasswordHash` property |
-| Unpredictable resource IDs | `LegalProcess.ProcessId` and `Document.StoredFileName` use `Guid.NewGuid()` |
-| Secret management | Database connection string retrieved from HashiCorp Vault at startup |
-| HTTPS enforcement | `app.UseHttpsRedirection()` |
-| Dependency scanning | `dotnet list package --vulnerable` in CI |
-| Container scanning | Trivy (CRITICAL/HIGH, ignore-unfixed) in CI |
-| Secret leak detection | Gitleaks on full git history in CI |
+| Hashing de palavra-passe | BCrypt com salt aleatório por hash (`BCryptPasswordHasher`) |
+| Sem credenciais em texto na BD | `ClientService.CreateClientAsync` aplica hash antes de persistir |
+| Sem credenciais nas respostas da API | `ClientDto` não tem propriedade `PasswordHash` |
+| IDs de recurso imprevisíveis | `LegalProcess.ProcessId` e `Document.StoredFileName` usam `Guid.NewGuid()` |
+| Gestão de segredos | Connection string da BD obtida do HashiCorp Vault no arranque |
+| Imposição de HTTPS | `app.UseHttpsRedirection()` |
+| Análise de dependências | `dotnet list package --vulnerable` em CI |
+| Análise de contentor | Trivy (CRITICAL/HIGH, ignore-unfixed) em CI |
+| Deteção de fugas de segredos | Gitleaks sobre o histórico git completo em CI |
 
 ---
 
-## 4. Running the Application
+## 4. Executar a aplicação
 
-### Prerequisites
+### Pré-requisitos
 
-| Requirement | Version |
+| Requisito | Versão |
 |---|---|
 | .NET SDK | 8.0.x |
-| Docker & Docker Compose | 20.x+ |
-| PostgreSQL (optional for local dev) | 15+ |
+| Docker e Docker Compose | 20.x+ |
+| PostgreSQL (opcional para dev local) | 15+ |
 
-### 4.1 Option A — Local .NET CLI (with Aiven or local PostgreSQL)
+### 4.1 Opção A — .NET CLI local (com Aiven ou PostgreSQL local)
 
-**Step 1 — Configure the database connection string**
+**Passo 1 — Configurar a connection string da base de dados**
 
-The application reads the connection string from the `ConnectionString:PostgreSQL` configuration key. Set it via environment variable (recommended) or `appsettings.Development.json`.
+A aplicação lê a connection string da chave de configuração
+`ConnectionString:PostgreSQL`. Defini-la via variável de ambiente
+(recomendado) ou `appsettings.Development.json`.
 
 ```bash
-# Environment variable (recommended — never commit credentials)
+# Variável de ambiente (recomendado — nunca fazer commit de credenciais)
 export ConnectionString__PostgreSQL="Host=<host>;Port=5432;Database=lawyerapp;Username=<user>;Password=<password>;SSL Mode=Require"
 ```
 
-Or add to `LawyerApp/appsettings.Development.json` (never commit this file):
+Ou adicionar a `LawyerApp/appsettings.Development.json` (nunca fazer
+commit deste ficheiro):
 
 ```json
 {
@@ -114,9 +124,10 @@ Or add to `LawyerApp/appsettings.Development.json` (never commit this file):
 }
 ```
 
-**Step 2 — (Optional) Configure HashiCorp Vault secrets**
+**Passo 2 — (Opcional) Configurar segredos do HashiCorp Vault**
 
-If using Vault to retrieve the connection string, set user-secrets (these are stored outside the repository):
+Se usar o Vault para obter a connection string, definir os user-secrets
+(estes são guardados fora do repositório):
 
 ```bash
 cd LawyerApp
@@ -127,37 +138,40 @@ dotnet user-secrets set "VaultSettings:MountPoint" "<mount_point>"
 dotnet user-secrets set "VaultSettings:SecretPath" "<secret_path>"
 ```
 
-Then uncomment the Vault block in `Program.cs` and comment out the direct connection string line.
+Em seguida descomentar o bloco do Vault em `Program.cs` e comentar a
+linha de connection string direta.
 
-**Step 3 — Apply database migrations**
+**Passo 3 — Aplicar migrations da base de dados**
 
 ```bash
 cd LawyerApp
 dotnet ef database update
 ```
 
-**Step 4 — Run the application**
+**Passo 4 — Executar a aplicação**
 
 ```bash
 dotnet run
 ```
 
-The API starts at `https://localhost:7xxx` and `http://localhost:5xxx` (exact ports in `Properties/launchSettings.json`). Swagger UI is available at `https://localhost:<port>/swagger`.
+A API arranca em `https://localhost:7xxx` e `http://localhost:5xxx`
+(portas exatas em `Properties/launchSettings.json`). A UI do Swagger
+está disponível em `https://localhost:<port>/swagger`.
 
 ---
 
-### 4.2 Option B — Docker
+### 4.2 Opção B — Docker
 
-**Step 1 — Build the image**
+**Passo 1 — Construir a imagem**
 
 ```bash
 cd LawyerApp
 docker build -t lawyerapp:latest .
 ```
 
-**Step 2 — Run the container**
+**Passo 2 — Executar o contentor**
 
-Pass the connection string as an environment variable:
+Passar a connection string como variável de ambiente:
 
 ```bash
 docker run -p 8080:8080 \
@@ -165,13 +179,13 @@ docker run -p 8080:8080 \
   lawyerapp:latest
 ```
 
-The API will be available at `http://localhost:8080`.
+A API ficará disponível em `http://localhost:8080`.
 
 ---
 
-### 4.3 Option C — Docker Compose (recommended for local development)
+### 4.3 Opção C — Docker Compose (recomendado para desenvolvimento local)
 
-Create a `docker-compose.yml` in the repository root:
+Criar um `docker-compose.yml` na raiz do repositório:
 
 ```yaml
 version: "3.9"
@@ -206,7 +220,7 @@ services:
 docker compose up --build
 ```
 
-Then run migrations from the host:
+Depois correr as migrations a partir do host:
 
 ```bash
 cd LawyerApp
@@ -215,18 +229,19 @@ dotnet ef database update
 
 ---
 
-## 5. Running Tests
+## 5. Executar testes
 
-### 5.1 All tests
+### 5.1 Todos os testes
 
 ```bash
 cd LawyerApp
 dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj -v normal
 ```
 
-**No database or network connection is required.** Integration tests use an EF Core InMemory provider isolated per test run.
+**Não é necessária ligação a base de dados ou rede.** Os testes de
+integração usam um provider InMemory do EF Core isolado por execução.
 
-### 5.2 With code coverage
+### 5.2 Com cobertura de código
 
 ```bash
 dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj \
@@ -234,28 +249,29 @@ dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj \
   --results-directory ./coverage
 ```
 
-Coverage reports are produced in Cobertura XML format under `./coverage/`.
+Os relatórios de cobertura são produzidos em formato Cobertura XML em
+`./coverage/`.
 
-### 5.3 Filter by category
+### 5.3 Filtrar por categoria
 
 ```bash
-# Only unit tests
+# Só testes unitários
 dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj \
   --filter "FullyQualifiedName~Unit"
 
-# Only integration tests
+# Só testes de integração
 dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj \
   --filter "FullyQualifiedName~Integration"
 ```
 
 ---
 
-## 6. API Endpoints
+## 6. Endpoints da API
 
-| Method | Path | Description | Request Body | Response |
+| Método | Caminho | Descrição | Body do pedido | Resposta |
 |---|---|---|---|---|
-| `GET` | `/api/client/get/all` | List all registered clients | — | `ClientDto[]` |
-| `POST` | `/api/client/create` | Register a new client | `CreateClientDto` | `ClientDto` |
+| `GET` | `/api/client/get/all` | Lista todos os clientes registados | — | `ClientDto[]` |
+| `POST` | `/api/client/create` | Regista um novo cliente | `CreateClientDto` | `ClientDto` |
 
 ### CreateClientDto
 
@@ -269,7 +285,7 @@ dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj \
 }
 ```
 
-### ClientDto (response — no password field)
+### ClientDto (resposta — sem campo password)
 
 ```json
 {
@@ -282,33 +298,33 @@ dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj \
 
 ---
 
-## 7. CI/CD Pipeline Summary
+## 7. Resumo da pipeline CI/CD
 
-Full design, mapping to the rubric, and the GitHub setup checklist are in
-[Pipeline.md](Pipeline.md).
+O desenho completo, o mapeamento para o rubric e a checklist de
+configuração no GitHub estão em [Pipeline.md](Pipeline.md).
 
-| Workflow | Trigger | Jobs |
+| Workflow | Disparo | Jobs |
 |---|---|---|
-| `build-test.yml` | push / PR to main, develop, manual | Build (Release) + xUnit tests + coverage + publish artifact |
-| `codeql.yml` | push / PR / weekly / manual | GitHub CodeQL SAST (C#, `security-and-quality`) |
-| `semgrep.yml` | push / PR / weekly / manual | Semgrep SAST (`p/default`, `p/security-audit`, `p/csharp`, `p/dockerfile`, `p/secrets`) |
-| `sonarcloud.yml` | manual (until `SONAR_TOKEN` configured) | Optional SonarCloud analysis — see Pipeline.md §5 |
-| `dependency-review.yml` | PR | GitHub Dependency Review on PR diffs (fail on `high` or GPL/AGPL) |
-| `security-scan.yml` | push / PR / weekly / manual | SCA (`dotnet list --vulnerable`), .NET analyzers, Trivy image scan |
-| `trivy-config.yml` | push / PR / manual | Trivy filesystem + IaC/Dockerfile config scan (fails on CRITICAL/HIGH) |
-| `sbom.yml` | push / PR / weekly / manual | CycloneDX SBOM (solution) + Syft SBOM (image) + Grype scan |
-| `secrets-scan.yml` | push / PR / weekly / manual | Gitleaks (full history) + TruffleHog (verified-only) |
-| `config-validation.yml` | push / PR / manual | Hadolint + actionlint + yamllint + JSON/appsettings validation + `dotnet format` |
-| `dependabot.yml` (config) | weekly schedule | NuGet + GitHub Actions + Docker base-image updates |
+| `build-test.yml` | push / PR para main, develop, manual | Build (Release) + testes xUnit + cobertura + artefacto publish |
+| `codeql.yml` | push / PR / semanal / manual | SAST GitHub CodeQL (C#, `security-and-quality`) |
+| `semgrep.yml` | push / PR / semanal / manual | SAST Semgrep (`p/default`, `p/security-audit`, `p/csharp`, `p/dockerfile`, `p/secrets`) |
+| `sonarcloud.yml` | manual (até `SONAR_TOKEN` estar configurado) | Análise SonarCloud opcional — ver Pipeline.md §5 |
+| `dependency-review.yml` | PR | GitHub Dependency Review sobre os diffs do PR (falha em `high` ou GPL/AGPL) |
+| `security-scan.yml` | push / PR / semanal / manual | SCA (`dotnet list --vulnerable`), analisadores .NET, análise Trivy à imagem |
+| `trivy-config.yml` | push / PR / manual | Análise Trivy ao filesystem + IaC/Dockerfile config (falha em CRITICAL/HIGH) |
+| `sbom.yml` | push / PR / semanal / manual | SBOM CycloneDX (solução) + SBOM Syft (imagem) + análise Grype |
+| `secrets-scan.yml` | push / PR / semanal / manual | Gitleaks (histórico completo) + TruffleHog (apenas verified) |
+| `config-validation.yml` | push / PR / manual | Hadolint + actionlint + yamllint + validação JSON/appsettings + `dotnet format` |
+| `dependabot.yml` (config) | agendamento semanal | Atualizações de NuGet + GitHub Actions + base-images Docker |
 
 ---
 
-## 8. Known Limitations & Future Work
+## 8. Limitações conhecidas e trabalho futuro
 
-| Item | Description |
+| Item | Descrição |
 |---|---|
-| Authentication / Authorization | JWT / role-based access control not yet implemented |
-| Remaining aggregates | `DocumentController`, `LegalProcessController` placeholders exist but are not implemented |
-| Input validation | `[Required]` / `[MaxLength]` data annotations not yet applied to DTOs |
-| Rate limiting | Not implemented |
-| Audit logging | No structured audit trail for create/update operations |
+| Autenticação / Autorização | Controlo de acesso JWT / baseado em papéis ainda não implementado |
+| Agregados restantes | Placeholders de `DocumentController`, `LegalProcessController` existem mas não estão implementados |
+| Validação de input | Anotações de dados `[Required]` / `[MaxLength]` ainda não aplicadas aos DTOs |
+| Rate limiting | Não implementado |
+| Logging de auditoria | Sem trilho de auditoria estruturado para operações de create/update |

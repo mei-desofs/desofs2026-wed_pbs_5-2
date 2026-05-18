@@ -1,145 +1,165 @@
-# Test Plan — LawyerApp
+# Plano de Testes — LawyerApp
 
-**Version:** 1.0
-**Date:** 2026-05-12
-**Author:** Group Wed PBS 5-2 — Build & Test
-**Project:** LawyerApp — Secure Legal Management Back-end
+**Versão:** 1.0
+**Data:** 2026-05-12
+**Autor:** Grupo Wed PBS 5-2 — Build & Test
+**Projeto:** LawyerApp — Back-end Seguro de Gestão Legal
 
-> See also [Pipeline.md](Pipeline.md) — pipeline operator's reference,
-> covers how this test plan is executed in CI (`build-test.yml`).
-
----
-
-## 1. Objectives
-
-This document describes the testing strategy for the LawyerApp REST API. The goals are:
-
-1. Validate that all implemented business rules behave as specified.
-2. Verify that security controls (password hashing, no credential exposure in responses) are enforced.
-3. Ensure the API surface contracts are stable and regression-free.
-4. Provide reproducible, automated evidence of correctness for the SSDLC report.
+> Ver também [Pipeline.md](Pipeline.md) — referência operacional da
+> pipeline, cobre como este plano de testes é executado em CI
+> (`build-test.yml`).
 
 ---
 
-## 2. Scope
+## 1. Objetivos
 
-| In Scope | Out of Scope |
+Este documento descreve a estratégia de testes para a REST API do
+LawyerApp. Os objetivos são:
+
+1. Validar que todas as regras de negócio implementadas se comportam
+   como especificado.
+2. Verificar que os controlos de segurança (hashing de palavra-passe,
+   ausência de exposição de credenciais nas respostas) são impostos.
+3. Garantir que os contratos da API são estáveis e livres de
+   regressões.
+4. Fornecer evidência automática e reprodutível de correção para o
+   relatório SSDLC.
+
+---
+
+## 2. Âmbito
+
+| Dentro do âmbito | Fora do âmbito |
 |---|---|
-| `ClientService` application logic | UI / front-end (none exists) |
-| `ClientController` API endpoints | Load / stress testing |
-| `UserRepository` data-access layer | Manual exploratory testing |
-| `BCryptPasswordHasher` security utility | HashiCorp Vault connectivity |
-| Domain entities (Client, LegalProcess, Document) | Production database (Aiven PostgreSQL) |
+| Lógica aplicacional do `ClientService` | UI / front-end (não existe) |
+| Endpoints da API `ClientController` | Testes de carga / stress |
+| Camada de acesso a dados `UserRepository` | Testes exploratórios manuais |
+| Utilitário de segurança `BCryptPasswordHasher` | Conectividade ao HashiCorp Vault |
+| Entidades de domínio (Client, LegalProcess, Document) | Base de dados de produção (Aiven PostgreSQL) |
 
 ---
 
-## 3. Testing Levels
+## 3. Níveis de testes
 
-### 3.1 Unit Tests
+### 3.1 Testes unitários
 
-**Location:** `LawyerApp.Tests/Unit/`  
-**Framework:** xUnit 2.9 · Moq 4.20 · FluentAssertions 6.12  
-**Isolation:** All external dependencies (repository, hasher) are replaced with Moq mocks.
+**Localização:** `LawyerApp.Tests/Unit/`
+**Framework:** xUnit 2.9 · Moq 4.20 · FluentAssertions 6.12
+**Isolamento:** Todas as dependências externas (repositório, hasher)
+são substituídas por mocks Moq.
 
-| Test Class | Covers | # Tests |
+| Classe de testes | Cobre | # Testes |
 |---|---|---|
-| `ClientServiceTests` | CreateClientAsync happy path, duplicate email rejection, password hash enforcement, GetAll mapping, no PasswordHash in DTO | 7 |
-| `BCryptPasswordHasherTests` | Hash format, uniqueness (random salt), verify-correct, verify-wrong, verify-empty | 7 |
-| `ClientTests` | Constructor property mapping, CreatedAt UTC stamp, inheritance chain | 3 |
-| `LegalProcessTests` | GUID uniqueness, initial status = Open | 2 |
-| `DocumentTests` | StoredFileName uniqueness, extension preservation | 2 |
+| `ClientServiceTests` | Caminho feliz de `CreateClientAsync`, rejeição de email duplicado, imposição do hash de palavra-passe, mapeamento de `GetAll`, ausência de `PasswordHash` no DTO | 7 |
+| `BCryptPasswordHasherTests` | Formato do hash, unicidade (salt aleatório), verify-correto, verify-errado, verify-vazio | 7 |
+| `ClientTests` | Mapeamento de propriedades pelo construtor, timestamp UTC de `CreatedAt`, cadeia de herança | 3 |
+| `LegalProcessTests` | Unicidade do GUID, estado inicial = Open | 2 |
+| `DocumentTests` | Unicidade de `StoredFileName`, preservação da extensão | 2 |
 
-**Total unit tests:** 21
+**Total de testes unitários:** 21
 
-### 3.2 Integration Tests
+### 3.2 Testes de integração
 
-**Location:** `LawyerApp.Tests/Integration/`  
-**Framework:** `Microsoft.AspNetCore.Mvc.Testing` + EF Core InMemory provider  
-**Infrastructure:** `CustomWebApplicationFactory` replaces the PostgreSQL `DbContext` with an isolated in-memory database per test collection.
+**Localização:** `LawyerApp.Tests/Integration/`
+**Framework:** `Microsoft.AspNetCore.Mvc.Testing` + provider InMemory
+do EF Core
+**Infraestrutura:** `CustomWebApplicationFactory` substitui o
+`DbContext` PostgreSQL por uma base de dados in-memory isolada por
+coleção de testes.
 
-| Test Class | Covers | # Tests |
+| Classe de testes | Cobre | # Testes |
 |---|---|---|
-| `ClientControllerTests` | GET /api/client/get/all (empty + after insert), POST /api/client/create (success, no hash in response, duplicate rejection) | 4 |
-| `UserRepositoryTests` | AddClientAsync, GetAllClientsAsync (TPH discriminator), EmailExistsAsync (true/false/case), GetByEmailAsync (found/not found) | 7 |
+| `ClientControllerTests` | GET /api/client/get/all (vazio + após inserção), POST /api/client/create (sucesso, sem hash na resposta, rejeição de duplicado) | 4 |
+| `UserRepositoryTests` | AddClientAsync, GetAllClientsAsync (discriminador TPH), EmailExistsAsync (true/false/case), GetByEmailAsync (encontrado / não encontrado) | 7 |
 
-**Total integration tests:** 11
+**Total de testes de integração:** 11
 
 ---
 
-## 4. Test Execution
+## 4. Execução dos testes
 
-### 4.1 Local Execution
+### 4.1 Execução local
 
 ```bash
-# From the repository root
+# A partir da raiz do repositório
 cd LawyerApp
 
-# Run all tests (unit + integration)
+# Correr todos os testes (unitários + integração)
 dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj -v normal
 
-# Run with code-coverage collection
+# Correr com recolha de cobertura
 dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj \
   --collect:"XPlat Code Coverage" \
   --results-directory ./coverage
 
-# Run only unit tests
+# Correr só testes unitários
 dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj \
   --filter "FullyQualifiedName~Unit"
 
-# Run only integration tests
+# Correr só testes de integração
 dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj \
   --filter "FullyQualifiedName~Integration"
 ```
 
-### 4.2 CI/CD Execution
+### 4.2 Execução CI/CD
 
-Tests run automatically on every push and pull request to `main` and `develop` via the [build-test.yml](../../../.github/workflows/build-test.yml) GitHub Actions workflow. Results are uploaded as artifacts (`.trx` + Cobertura XML).
+Os testes correm automaticamente em cada push e pull request para
+`main` e `develop` através do workflow GitHub Actions
+[build-test.yml](../../../.github/workflows/build-test.yml). Os
+resultados são carregados como artefactos (`.trx` + XML Cobertura).
 
 ---
 
-## 5. Security-Focused Test Cases
+## 5. Casos de teste focados em segurança
 
-The following tests directly exercise OWASP and ASVS controls:
+Os testes seguintes exercitam diretamente controlos OWASP e ASVS:
 
-| Test | ASVS Control | Description |
+| Teste | Controlo ASVS | Descrição |
 |---|---|---|
-| `CreateClientAsync_NeverStoresPlainTextPassword` | V2.1.1 | Verifies the raw password string is never sent to the repository |
-| `CreateClientAsync_HashesPasswordBeforePersisting` | V2.1.1 | Confirms the BCrypt hash (not the plain text) is stored |
-| `BCryptPasswordHasherTests.*` | V2.1.9 | Full coverage of bcrypt hash/verify lifecycle |
-| `Create_ResponseDoesNotContainPasswordHash` | V8.3.1 | HTTP response body must not include `passwordHash` field |
-| `GetAllClientsAsync_DoesNotExposePasswordHash` | V8.3.1 | `ClientDto` must not have a `PasswordHash` property |
-| `GetAllClientsAsync_WhenNoClients_ReturnsEmptyArray` | V13.1.1 | Valid JSON array returned even for empty result sets |
+| `CreateClientAsync_NeverStoresPlainTextPassword` | V2.1.1 | Verifica que a string de palavra-passe em bruto nunca é enviada ao repositório |
+| `CreateClientAsync_HashesPasswordBeforePersisting` | V2.1.1 | Confirma que o hash BCrypt (e não o texto simples) é armazenado |
+| `BCryptPasswordHasherTests.*` | V2.1.9 | Cobertura completa do ciclo de hash/verify do bcrypt |
+| `Create_ResponseDoesNotContainPasswordHash` | V8.3.1 | O body de resposta HTTP não deve incluir o campo `passwordHash` |
+| `GetAllClientsAsync_DoesNotExposePasswordHash` | V8.3.1 | O `ClientDto` não deve ter propriedade `PasswordHash` |
+| `GetAllClientsAsync_WhenNoClients_ReturnsEmptyArray` | V13.1.1 | Array JSON válido devolvido mesmo para conjuntos de resultados vazios |
 
 ---
 
-## 6. Test Data Strategy
+## 6. Estratégia de dados de teste
 
-All test data is self-contained within each test class (Arrange-Act-Assert pattern). No shared state between tests. The in-memory database is scoped to the test run via `Guid.NewGuid()` in `InMemoryDbContextFactory.Create()`, preventing cross-test pollution.
+Todos os dados de teste estão contidos dentro de cada classe de testes
+(padrão Arrange-Act-Assert). Sem estado partilhado entre testes. A base
+de dados in-memory tem escopo limitado à execução do teste via
+`Guid.NewGuid()` em `InMemoryDbContextFactory.Create()`, prevenindo
+poluição entre testes.
 
 ---
 
-## 7. Coverage Targets
+## 7. Metas de cobertura
 
-| Layer | Target Coverage |
+| Camada | Cobertura alvo |
 |---|---|
 | Application Services | ≥ 90% |
-| Domain Entities | ≥ 85% |
-| Infrastructure (Repositories) | ≥ 80% |
-| API Controllers | ≥ 75% (via integration tests) |
+| Entidades de Domínio | ≥ 85% |
+| Infrastructure (Repositórios) | ≥ 80% |
+| Controladores da API | ≥ 75% (via testes de integração) |
 
 ---
 
-## 8. Artifact Scanning
+## 8. Análise de artefactos
 
-See [Artifact_Scanning.md](Artifact_Scanning.md) for the full scanning strategy, tooling, and CI integration.
+Ver [Artifact_Scanning.md](Artifact_Scanning.md) para a estratégia
+completa de análise, ferramentas e integração com CI.
 
 ---
 
-## 9. Pass / Fail Criteria
+## 9. Critérios de passagem / falha
 
-A build is considered **passing** if:
+Uma build é considerada **a passar** se:
 
-- All `dotnet test` runs exit with code 0.
-- No vulnerable NuGet packages are found (`dotnet list package --vulnerable`).
-- Trivy finds no **CRITICAL** or **HIGH** CVEs in the container image.
-- Gitleaks finds no hardcoded secrets.
+- Todas as execuções `dotnet test` saem com código 0.
+- Não são encontrados pacotes NuGet vulneráveis
+  (`dotnet list package --vulnerable`).
+- O Trivy não encontra CVEs **CRITICAL** ou **HIGH** na imagem do
+  contentor.
+- O Gitleaks não encontra segredos hardcoded.
