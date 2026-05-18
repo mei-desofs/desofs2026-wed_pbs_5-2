@@ -1,76 +1,78 @@
-# CI/CD Pipeline — LawyerApp
+# Pipeline CI/CD — LawyerApp
 
-> Sprint 2 deliverable for **Pipeline Automation** and the pipeline side of
-> **Build & Test**. Operator's reference + design document.
+> Entregável do Sprint 2 para **Automação de Pipeline** e a vertente de
+> pipeline de **Build & Test**. Referência operacional + documento de
+> desenho.
 >
-> All workflows live under [`.github/workflows`](../../../.github/workflows)
-> and trigger on every pull request to `main`/`develop`, on push to those
-> branches, and on weekly schedules for drift detection.
+> Todos os workflows estão em [`.github/workflows`](../../../.github/workflows)
+> e disparam em cada pull request para `main`/`develop`, em cada push para
+> esses ramos, e em agendamentos semanais para deteção de regressões.
 >
-> Companion documents: [Test_Plan.md](Test_Plan.md),
+> Documentos complementares: [Test_Plan.md](Test_Plan.md),
 > [Artifact_Scanning.md](Artifact_Scanning.md),
 > [Technical_Report.md](Technical_Report.md).
 
 ---
 
-## Table of contents
+## Índice
 
-1. [Executive overview](#1-executive-overview)
-2. [Design overview](#2-design-overview)
-3. [Trigger matrix](#3-trigger-matrix)
-4. [Practices adopted](#4-practices-adopted)
-5. [Workflow walkthroughs](#5-workflow-walkthroughs)
-6. [Configuration files](#6-configuration-files)
-7. [Tools used and rationale](#7-tools-used-and-rationale)
-8. [Running every check locally](#8-running-every-check-locally)
-9. [Interpreting findings](#9-interpreting-findings)
-10. [Responding to a failed check](#10-responding-to-a-failed-check)
-11. [Adding / modifying / suppressing checks](#11-adding--modifying--suppressing-checks)
-12. [Troubleshooting](#12-troubleshooting)
-13. [Required GitHub settings (outside source code)](#13-required-github-settings-outside-source-code)
-14. [SonarCloud (optional setup)](#14-sonarcloud-optional-setup)
-15. [Mapping to the Sprint 2 rubric](#15-mapping-to-the-sprint-2-rubric)
-16. [Maintenance & lifecycle](#16-maintenance--lifecycle)
-17. [Glossary](#17-glossary)
-18. [References](#18-references)
+1. [Visão executiva](#1-visão-executiva)
+2. [Visão de desenho](#2-visão-de-desenho)
+3. [Matriz de disparos](#3-matriz-de-disparos)
+4. [Práticas adotadas](#4-práticas-adotadas)
+5. [Análise dos workflows](#5-análise-dos-workflows)
+6. [Ficheiros de configuração](#6-ficheiros-de-configuração)
+7. [Ferramentas utilizadas e justificação](#7-ferramentas-utilizadas-e-justificação)
+8. [Executar cada verificação localmente](#8-executar-cada-verificação-localmente)
+9. [Interpretação das ocorrências](#9-interpretação-das-ocorrências)
+10. [Resposta a uma verificação que falha](#10-resposta-a-uma-verificação-que-falha)
+11. [Adicionar / modificar / suprimir verificações](#11-adicionar--modificar--suprimir-verificações)
+12. [Resolução de problemas](#12-resolução-de-problemas)
+13. [Definições de GitHub necessárias (fora do código)](#13-definições-de-github-necessárias-fora-do-código)
+14. [SonarCloud (configuração opcional)](#14-sonarcloud-configuração-opcional)
+15. [Mapeamento para o rubric do Sprint 2](#15-mapeamento-para-o-rubric-do-sprint-2)
+16. [Manutenção e ciclo de vida](#16-manutenção-e-ciclo-de-vida)
+17. [Glossário](#17-glossário)
+18. [Referências](#18-referências)
 
 ---
 
-## 1. Executive overview
+## 1. Visão executiva
 
-The pipeline is **ten GitHub Actions workflows** + one Dependabot config +
-three policy files (`.gitleaks.toml`, `.trivyignore`, `.gitignore`). Every
-pull request to `main` or `develop` runs **all** the checks in parallel.
-Mergeability is gated by status-check rules in branch protection.
+A pipeline é composta por **dez workflows do GitHub Actions** + uma
+configuração do Dependabot + três ficheiros de política (`.gitleaks.toml`,
+`.trivyignore`, `.gitignore`). Cada pull request para `main` ou `develop`
+executa **todas** as verificações em paralelo. A possibilidade de fazer
+merge é controlada por regras de status check na proteção de branch.
 
-The pipeline answers eight SSDLC questions on every PR:
+A pipeline responde a oito perguntas do SSDLC em cada PR:
 
-| Question | Answered by |
+| Pergunta | Respondida por |
 |---|---|
-| Does it build? | `build-test.yml` |
-| Do the tests pass? | `build-test.yml` (xUnit + integration) |
-| Is the source code free of known security anti-patterns? | `codeql.yml`, `semgrep.yml`, `sast` job in `security-scan.yml` |
-| Does any dependency carry a known CVE? | `dependency-review.yml`, `sca` job in `security-scan.yml`, Dependabot |
-| Does the container image carry CVEs we haven't suppressed? | `security-scan.yml` (Trivy image), `trivy-config.yml`, Grype job in `sbom.yml` |
-| Have we committed a secret? | `secrets-scan.yml` (Gitleaks + TruffleHog) |
-| Is our Dockerfile / YAML / JSON well-formed? | `config-validation.yml`, `trivy-config.yml` |
-| Can we produce an auditable inventory of what's inside the build? | `sbom.yml` (CycloneDX + Syft SPDX) |
+| Compila? | `build-test.yml` |
+| Os testes passam? | `build-test.yml` (xUnit + integração) |
+| O código-fonte está livre de anti-padrões de segurança conhecidos? | `codeql.yml`, `semgrep.yml`, job `sast` em `security-scan.yml` |
+| Alguma dependência tem CVE conhecido? | `dependency-review.yml`, job `sca` em `security-scan.yml`, Dependabot |
+| A imagem de contentor tem CVEs que não suprimimos? | `security-scan.yml` (Trivy image), `trivy-config.yml`, job Grype em `sbom.yml` |
+| Foi feito commit de algum segredo? | `secrets-scan.yml` (Gitleaks + TruffleHog) |
+| O nosso Dockerfile / YAML / JSON está bem formado? | `config-validation.yml`, `trivy-config.yml` |
+| Conseguimos produzir um inventário auditável daquilo que entra na build? | `sbom.yml` (CycloneDX + Syft SPDX) |
 
-Everything reports SARIF to **Security → Code scanning** so findings
-deduplicate and persist between runs. Failures are summarised on the PR
-checks tab.
+Tudo reporta SARIF para **Security → Code scanning** para que as
+ocorrências sejam deduplicadas e persistam entre execuções. As falhas são
+sumarizadas no separador de checks do PR.
 
-## 2. Design overview
+## 2. Visão de desenho
 
-The pipeline is decomposed into focused workflows that run in parallel on
-each pull request. Splitting them keeps feedback loops fast, makes
-individual checks easy to mark required in branch protection, and lets each
-tool publish SARIF to the **GitHub Security tab** without one job blocking
-another.
+A pipeline é decomposta em workflows focados que correm em paralelo em
+cada pull request. Dividi-los mantém os ciclos de feedback rápidos,
+facilita marcar cada um como obrigatório na proteção de branch e permite
+que cada ferramenta publique SARIF para o **separador GitHub Security**
+sem que um job bloqueie o outro.
 
 ```
                        ┌──────────────────────────────────────────────┐
-                       │           Pull request to main               │
+                       │           Pull request para main             │
                        └──────────────────────────────────────────────┘
                                             │
        ┌───────────┬──────────┬─────────────┼──────────────┬──────────┬───────────┐
@@ -82,422 +84,441 @@ another.
        │           │          │             │              │          │           │
        ▼           ▼          ▼             ▼              ▼          ▼           ▼
   ┌─────────────────────────────────────────────────────────────────────────────────┐
-  │           Security Scan (SCA + .NET-analyzer SAST + Trivy image)                │
+  │           Security Scan (SCA + SAST de analisadores .NET + Trivy image)         │
   └─────────────────────────────────────────────────────────────────────────────────┘
        │
        ▼
   ┌─────────────────────────────────────────────────────────────────────────────────┐
-  │                      Configuration Validation                                    │
+  │                      Validação de Configuração                                   │
   │       Hadolint · actionlint · yamllint · JSON / appsettings · dotnet format      │
   └─────────────────────────────────────────────────────────────────────────────────┘
        │
-       └─────► All findings aggregated under Security → Code scanning (SARIF) ◄─────
+       └───► Todas as ocorrências agregadas em Security → Code scanning (SARIF) ◄───
 ```
 
-### Design principles
+### Princípios de desenho
 
-- **Focused workflows over one giant one** — easier to mark each as required
-  in branch protection, easier to re-run individual jobs, easier to read
-  logs.
-- **Fail closed, document open** — any HIGH/CRITICAL finding fails the PR
-  by default. To bypass, add a documented suppression entry
-  (`.trivyignore`, `.gitleaks.toml`) so the reviewer sees the justification
-  in the diff.
-- **Defence in depth** — at least two independent tools cover each rubric
-  area (SAST: CodeQL + Semgrep; SCA: Dependency Review + `dotnet list`;
-  Image: Trivy + Grype; Secrets: Gitleaks + TruffleHog).
-- **Pinned versions** — every third-party action carries an explicit
-  version tag. Dependabot raises rebump PRs weekly so updates are visible
-  and reviewable, never silent.
-- **Least privilege** — every workflow declares an explicit `permissions:`
-  block (default `contents: read`). Jobs that publish to the Security tab
-  add `security-events: write`; Dependency Review adds
-  `pull-requests: write` for the inline summary. No workflow uses the
-  default permissive token.
+- **Workflows focados em vez de um só monolítico** — mais fácil marcar
+  cada um como obrigatório na proteção de branch, mais fácil voltar a
+  executar jobs individuais, mais fácil ler logs.
+- **Falhar fechado, documentar aberto** — qualquer ocorrência HIGH/CRITICAL
+  faz falhar o PR por defeito. Para fazer bypass, adicionar uma entrada de
+  supressão documentada (`.trivyignore`, `.gitleaks.toml`) para que o
+  revisor veja a justificação no diff.
+- **Defesa em profundidade** — pelo menos duas ferramentas independentes
+  cobrem cada área do rubric (SAST: CodeQL + Semgrep; SCA: Dependency
+  Review + `dotnet list`; Imagem: Trivy + Grype; Segredos: Gitleaks +
+  TruffleHog).
+- **Versões fixadas** — todas as actions de terceiros têm tag de versão
+  explícita. O Dependabot levanta PRs de atualização semanalmente para que
+  as atualizações sejam visíveis e revistas, nunca silenciosas.
+- **Privilégio mínimo** — todos os workflows declaram um bloco
+  `permissions:` explícito (por defeito `contents: read`). Jobs que
+  publicam para o Security tab adicionam `security-events: write`; o
+  Dependency Review adiciona `pull-requests: write` para o sumário inline.
+  Nenhum workflow usa o token permissivo por defeito.
 
-## 3. Trigger matrix
+## 3. Matriz de disparos
 
-| Workflow | Pull request | Push | Schedule (weekly) | Manual |
+| Workflow | Pull request | Push | Agendamento (semanal) | Manual |
 |---|:---:|:---:|:---:|:---:|
-| [`build-test.yml`](../../../.github/workflows/build-test.yml) | yes | yes |  | yes |
-| [`codeql.yml`](../../../.github/workflows/codeql.yml) | yes | yes | yes | yes |
-| [`semgrep.yml`](../../../.github/workflows/semgrep.yml) | yes | yes | yes | yes |
-| [`sonarcloud.yml`](../../../.github/workflows/sonarcloud.yml) | (after setup) | (after setup) |  | yes |
-| [`dependency-review.yml`](../../../.github/workflows/dependency-review.yml) | yes |  |  |  |
-| [`security-scan.yml`](../../../.github/workflows/security-scan.yml) | yes | yes | yes | yes |
-| [`trivy-config.yml`](../../../.github/workflows/trivy-config.yml) | yes | yes |  | yes |
-| [`sbom.yml`](../../../.github/workflows/sbom.yml) | yes | yes | yes | yes |
-| [`secrets-scan.yml`](../../../.github/workflows/secrets-scan.yml) | yes | yes | yes | yes |
-| [`config-validation.yml`](../../../.github/workflows/config-validation.yml) | yes | yes |  | yes |
+| [`build-test.yml`](../../../.github/workflows/build-test.yml) | sim | sim |  | sim |
+| [`codeql.yml`](../../../.github/workflows/codeql.yml) | sim | sim | sim | sim |
+| [`semgrep.yml`](../../../.github/workflows/semgrep.yml) | sim | sim | sim | sim |
+| [`sonarcloud.yml`](../../../.github/workflows/sonarcloud.yml) | (após configuração) | (após configuração) |  | sim |
+| [`dependency-review.yml`](../../../.github/workflows/dependency-review.yml) | sim |  |  |  |
+| [`security-scan.yml`](../../../.github/workflows/security-scan.yml) | sim | sim | sim | sim |
+| [`trivy-config.yml`](../../../.github/workflows/trivy-config.yml) | sim | sim |  | sim |
+| [`sbom.yml`](../../../.github/workflows/sbom.yml) | sim | sim | sim | sim |
+| [`secrets-scan.yml`](../../../.github/workflows/secrets-scan.yml) | sim | sim | sim | sim |
+| [`config-validation.yml`](../../../.github/workflows/config-validation.yml) | sim | sim |  | sim |
 
-Weekly schedules surface advisories that drop **after** code freezes — a
-no-code-change scan still catches new CVEs in pinned dependencies.
+Os agendamentos semanais expõem advisórias que surgem **após** os
+congelamentos de código — uma análise sem alterações ainda apanha CVEs
+novos em dependências fixadas.
 
-## 4. Practices adopted
+## 4. Práticas adotadas
 
 ### Build & Test
-- Reproducible builds: pinned .NET 8 SDK, NuGet cache keyed on `*.csproj`,
-  `Release` configuration.
-- xUnit + Moq + FluentAssertions tests on every PR (see
+- Builds reprodutíveis: SDK .NET 8 fixado, cache NuGet indexada por
+  `*.csproj`, configuração `Release`.
+- Testes xUnit + Moq + FluentAssertions em cada PR (ver
   [Test_Plan.md](Test_Plan.md)).
-- TRX + Cobertura coverage uploaded as artifacts.
-- Production payload uploaded as `lawyerapp-publish`.
+- Cobertura TRX + Cobertura carregada como artefactos.
+- Payload de produção carregado como `lawyerapp-publish`.
 
 ### SAST (Static Application Security Testing)
-- **CodeQL** (`security-and-quality` query suite) — primary.
+- **CodeQL** (conjunto de queries `security-and-quality`) — primária.
 - **Semgrep** (`p/default p/security-audit p/csharp p/dockerfile p/secrets`)
-  — additional.
-- **.NET analyzers + Security Code Scan** — runs in-build, promotes
-  selected `CA` rules to errors.
-- **SonarCloud** — optional, scaffolded as manual-trigger.
+  — adicional.
+- **Analisadores .NET + Security Code Scan** — corre em build, promove
+  regras `CA` selecionadas a erros.
+- **SonarCloud** — opcional, em manual-trigger.
 
 ### SCA (Software Composition Analysis)
-- **GitHub Dependency Review** — PR-diff CVE + license gate.
-- **`dotnet list package --vulnerable --include-transitive`** — fails on
-  any vulnerable direct or transitive package.
-- **`--deprecated`/`--outdated`** — visibility-only.
-- **Dependabot** — weekly grouped PRs for NuGet, Actions, Docker.
-- **CycloneDX SBOM** + **Syft SPDX SBOM** — per-build component inventory.
+- **GitHub Dependency Review** — gate de CVE + licença sobre o diff do PR.
+- **`dotnet list package --vulnerable --include-transitive`** — falha se
+  existir qualquer pacote vulnerável, direto ou transitivo.
+- **`--deprecated`/`--outdated`** — só visibilidade.
+- **Dependabot** — PRs semanais agrupados para NuGet, Actions, Docker.
+- **CycloneDX SBOM** + **Syft SPDX SBOM** — inventário de componentes por
+  build.
 
-### Artifact (container) scanning
-- **Trivy image scan** — OS + library CVEs, fail on CRITICAL/HIGH.
-- **Trivy filesystem + IaC scan** — vulnerable lockfiles, Dockerfile
-  misconfigs.
-- **Grype** — independent second-opinion scan of the same image.
+### Análise de artefactos (contentor)
+- **Análise Trivy à imagem** — CVEs de SO + bibliotecas, falha em
+  CRITICAL/HIGH.
+- **Análise Trivy a sistema de ficheiros + IaC** — lockfiles vulneráveis,
+  más configurações do Dockerfile.
+- **Grype** — análise independente, segunda opinião sobre a mesma imagem.
 
-### Configuration validation
-- **Hadolint** — Dockerfile lint, fail on error-severity.
-- **actionlint** — GitHub workflow YAML validation.
-- **yamllint** — generic YAML hygiene.
-- **`jq` + regex guard** — JSON syntax + plaintext-secret scan for
-  `appsettings*.json`.
-- **`dotnet format --verify-no-changes`** — style/whitespace drift.
+### Validação de configuração
+- **Hadolint** — lint ao Dockerfile, falha em severidade error.
+- **actionlint** — validação do YAML dos workflows do GitHub.
+- **yamllint** — higiene genérica de YAML.
+- **`jq` + guard regex** — sintaxe JSON + análise de segredos em texto
+  para `appsettings*.json`.
+- **`dotnet format --verify-no-changes`** — desvio de estilo / espaços
+  em branco.
 
-### Secret detection
-- **Gitleaks** — full git history, with `.gitleaks.toml` allowlist for
-  documented false positives.
-- **TruffleHog** — PR diff range, verified-only mode.
+### Deteção de segredos
+- **Gitleaks** — histórico git completo, com allowlist no `.gitleaks.toml`
+  para falsos positivos documentados.
+- **TruffleHog** — binário direto (sem action), modo verified-only; diff do PR em pull_request, histórico completo em push.
 
-### Pipeline hygiene
-- **Least-privilege tokens** on every workflow (`permissions:` block).
-- **Pinned action versions**; Dependabot raises rebump PRs.
-- **`timeout-minutes`** on every job.
-- **`workflow_dispatch:`** on every workflow for manual re-runs.
+### Higiene da pipeline
+- **Tokens de privilégio mínimo** em cada workflow (bloco `permissions:`).
+- **Versões de actions fixadas**; o Dependabot levanta PRs de subida.
+- **`timeout-minutes`** em cada job.
+- **`workflow_dispatch:`** em cada workflow para reexecuções manuais.
 
-## 5. Workflow walkthroughs
+## 5. Análise dos workflows
 
-Each workflow is described in three parts: **trigger**, **what each step
-does**, and **failure modes**. Inputs and outputs are documented inline.
+Cada workflow é descrito em três partes: **disparo**, **o que cada passo
+faz** e **modos de falha**. Entradas e saídas são documentadas inline.
 
 ---
 
 ### 5.1 `build-test.yml` — Build & Test
 
-**Path:** [`.github/workflows/build-test.yml`](../../../.github/workflows/build-test.yml)
-**Triggers:** push/PR to `main`/`develop`, manual dispatch.
+**Caminho:** [`.github/workflows/build-test.yml`](../../../.github/workflows/build-test.yml)
+**Disparos:** push/PR para `main`/`develop`, dispatch manual.
 **Timeout:** 20 min.
-**Permissions:** `contents: read`.
+**Permissões:** `contents: read`.
 
 #### Job: `build-and-test`
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
-| 1 | `Checkout source` | `actions/checkout@v4` — pulls the repo at the PR head. | Required for every workflow. |
-| 2 | `Setup .NET` | Installs SDK `8.0.x`. | Reproducible toolchain — independent of runner-image defaults. |
-| 3 | `Cache NuGet packages` | `actions/cache@v4` keyed on `hashFiles('**/*.csproj')`. | Avoids re-downloading dependencies on every run — cuts a typical build from ~3 min to ~30 s. |
-| 4 | `Restore dependencies` | `dotnet restore LawyerApp/LawyerApp.sln`. | Downloads transitive NuGet graph. |
-| 5 | `Build (Release)` | `dotnet build … -c Release --no-restore`. | Builds in the configuration we ship — `Release` enables compiler optimisations and is what the test/publish artifacts share. |
-| 6 | `Run tests with code coverage` | `dotnet test … --logger trx --collect:"XPlat Code Coverage"`. | Runs every test project the solution references; emits TRX (Visual Studio test result format) and Cobertura coverage XML. |
-| 7 | `Upload test results` | `actions/upload-artifact@v4` → `test-results`. | TRX is openable in Visual Studio or via `dotnet-trx`. Retained 7 days. |
-| 8 | `Upload coverage report` | `actions/upload-artifact@v4` → `coverage-report`. | Cobertura XML is consumable by ReportGenerator, Codecov, SonarCloud, etc. |
-| 9 | `Publish (production payload)` | `dotnet publish … -c Release --no-build`. | Produces the runtime payload that Docker would COPY into the image. Step name is "production payload" because it is bit-for-bit what ships. |
-| 10 | `Upload published artifact` | `actions/upload-artifact@v4` → `lawyerapp-publish`. | Lets a reviewer download the exact build a PR produced. Retained 7 days. |
+| 1 | `Checkout source` | `actions/checkout@v4` — obtém o repositório no HEAD do PR. | Obrigatório em cada workflow. |
+| 2 | `Setup .NET` | Instala SDK `8.0.x`. | Toolchain reprodutível — independente dos defaults da runner image. |
+| 3 | `Cache NuGet packages` | `actions/cache@v4` indexada por `hashFiles('**/*.csproj')`. | Evita voltar a transferir dependências em cada execução — reduz uma build típica de ~3 min para ~30 s. |
+| 4 | `Restore dependencies` | `dotnet restore LawyerApp/LawyerApp.sln`. | Transfere o grafo transitivo de NuGet. |
+| 5 | `Build (Release)` | `dotnet build … -c Release --no-restore`. | Constrói na configuração que vamos enviar — `Release` ativa otimizações do compilador e é o que os artefactos de teste/publish partilham. |
+| 6 | `Run tests with code coverage` | `dotnet test … --logger trx --collect:"XPlat Code Coverage"`. | Corre cada projeto de testes referenciado pela solução; emite TRX (formato de resultado de testes do Visual Studio) e XML de cobertura Cobertura. |
+| 7 | `Upload test results` | `actions/upload-artifact@v4` → `test-results`. | TRX é abrível no Visual Studio ou via `dotnet-trx`. Retido 7 dias. |
+| 8 | `Upload coverage report` | `actions/upload-artifact@v4` → `coverage-report`. | XML Cobertura é consumível pelo ReportGenerator, Codecov, SonarCloud, etc. |
+| 9 | `Publish (production payload)` | `dotnet publish … -c Release --no-build`. | Produz o payload runtime que o Docker iria copiar para a imagem. O nome do passo é "production payload" porque é bit-a-bit aquilo que será enviado. |
+| 10 | `Upload published artifact` | `actions/upload-artifact@v4` → `lawyerapp-publish`. | Permite ao revisor transferir a build exata que o PR produziu. Retido 7 dias. |
 
-**Failure modes:** any compile error or test failure fails the job. To
-debug a specific test failure, download the `test-results` artifact and
-open the `.trx` file.
+**Modos de falha:** qualquer erro de compilação ou falha de teste faz
+falhar o job. Para depurar uma falha específica de teste, transfira o
+artefacto `test-results` e abra o ficheiro `.trx`.
 
 ---
 
-### 5.2 `codeql.yml` — Primary SAST
+### 5.2 `codeql.yml` — SAST primária
 
-**Path:** [`.github/workflows/codeql.yml`](../../../.github/workflows/codeql.yml)
-**Triggers:** push/PR/weekly (Mondays 03:17 UTC) / manual.
+**Caminho:** [`.github/workflows/codeql.yml`](../../../.github/workflows/codeql.yml)
+**Disparos:** push/PR/semanal (segundas 03:17 UTC) / manual.
 **Timeout:** 30 min.
-**Permissions:** `contents: read`, `security-events: write`,
+**Permissões:** `contents: read`, `security-events: write`,
 `actions: read`.
 
-#### Job: `analyze` (matrix `language: [csharp]`)
+#### Job: `analyze` (matriz `language: [csharp]`)
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
-| 1 | `Checkout` | Standard. | — |
-| 2 | `Setup .NET` | Installs SDK `8.0.x`. | CodeQL needs to **build** the project to extract semantic information. |
-| 3 | `Initialize CodeQL` | `github/codeql-action/init@v3` with `queries: security-and-quality`. | Picks the more aggressive query pack (default `security-extended` plus quality queries) — favoured for a security-graded project. |
-| 4 | `Build for CodeQL` | `dotnet restore` + `dotnet build … --configuration Release`. | Required for compiled languages (C#). Without a successful build, CodeQL can't extract symbols. |
-| 5 | `Perform CodeQL Analysis` | `github/codeql-action/analyze@v3`. | Runs the query pack against the extracted database, uploads SARIF to Security tab under category `/language:csharp`. |
+| 1 | `Checkout` | Padrão. | — |
+| 2 | `Setup .NET` | Instala SDK `8.0.x`. | O CodeQL precisa de **fazer build** do projeto para extrair informação semântica. |
+| 3 | `Initialize CodeQL` | `github/codeql-action/init@v3` com `queries: security-and-quality`. | Escolhe o pacote de queries mais agressivo (default `security-extended` mais queries de qualidade) — preferível para um projeto avaliado em segurança. |
+| 4 | `Build for CodeQL` | `dotnet restore` + `dotnet build … --configuration Release`. | Obrigatório para linguagens compiladas (C#). Sem uma build bem-sucedida, o CodeQL não consegue extrair símbolos. |
+| 5 | `Perform CodeQL Analysis` | `github/codeql-action/analyze@v3`. | Corre o pacote de queries contra a base de dados extraída, carrega SARIF para o Security tab na categoria `/language:csharp`. |
 
-**Failure modes:** build failure during step 4 fails the job. Findings
-above CodeQL's default threshold appear in *Security → Code scanning* but
-do **not** by themselves fail the workflow (GitHub does dedup and
-classification server-side).
+**Modos de falha:** falha na build do passo 4 faz falhar o job.
+Ocorrências acima do limiar predefinido do CodeQL aparecem em *Security →
+Code scanning* mas **não** fazem falhar o workflow por si só (o GitHub
+faz deduplicação e classificação no servidor).
 
 ---
 
-### 5.3 `semgrep.yml` — Additional SAST
+### 5.3 `semgrep.yml` — SAST adicional
 
-**Path:** [`.github/workflows/semgrep.yml`](../../../.github/workflows/semgrep.yml)
-**Triggers:** push/PR/weekly (Mondays 04:27 UTC) / manual.
+**Caminho:** [`.github/workflows/semgrep.yml`](../../../.github/workflows/semgrep.yml)
+**Disparos:** push/PR/semanal (segundas 04:27 UTC) / manual.
 **Timeout:** 20 min.
-**Permissions:** `contents: read`, `security-events: write`.
+**Permissões:** `contents: read`, `security-events: write`.
 
 #### Job: `semgrep`
-Runs inside the official `semgrep/semgrep` container image.
+Corre dentro da imagem de contentor oficial `semgrep/semgrep`.
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
-| 1 | `Checkout` | Standard. | — |
-| 2 | `Run Semgrep` | `semgrep ci --sarif --output=semgrep.sarif --config=p/default --config=p/security-audit --config=p/csharp --config=p/dockerfile --config=p/secrets`. | Five rulesets, layered: general code quality, OWASP-aligned security, C#-specific, Dockerfile, and secrets. SARIF output for the Security tab. |
-| 3 | `Upload SARIF to GitHub` | `github/codeql-action/upload-sarif@v3` under category `semgrep`. | Findings appear in Security tab alongside CodeQL — deduplication via category labels. |
-| 4 | `Upload Semgrep report` | `actions/upload-artifact@v4` → `semgrep-report` (30 d). | Lets reviewers download the raw SARIF if the Security tab isn't accessible. |
+| 1 | `Checkout` | Padrão. | — |
+| 2 | `Run Semgrep` | `semgrep ci --sarif --output=semgrep.sarif --config=p/default --config=p/security-audit --config=p/csharp --config=p/dockerfile --config=p/secrets`. | Cinco conjuntos de regras em camadas: qualidade geral de código, segurança alinhada com OWASP, específica de C#, Dockerfile, e segredos. Saída SARIF para o Security tab. |
+| 3 | `Upload SARIF to GitHub` | `github/codeql-action/upload-sarif@v3` na categoria `semgrep`. | Ocorrências aparecem no Security tab a par do CodeQL — deduplicação via etiquetas de categoria. |
+| 4 | `Upload Semgrep report` | `actions/upload-artifact@v4` → `semgrep-report` (30 d). | Permite aos revisores transferir o SARIF cru se o Security tab não estiver acessível. |
 
-**Failure modes:** Semgrep exits non-zero on findings in `p/` rulesets
-classified as `ERROR`. Lower-severity matches are reported but do not
-fail. To override, switch to `--severity=ERROR` only.
+**Modos de falha:** O Semgrep sai com código não-zero em ocorrências dos
+conjuntos `p/` classificadas como `ERROR`. Resultados de menor severidade
+são reportados mas não falham. Para alterar, mudar para `--severity=ERROR`
+apenas.
 
 ---
 
-### 5.4 `sonarcloud.yml` — Optional SAST
+### 5.4 `sonarcloud.yml` — SAST opcional
 
-**Path:** [`.github/workflows/sonarcloud.yml`](../../../.github/workflows/sonarcloud.yml)
-**Triggers:** manual dispatch only (until `SONAR_TOKEN` is configured).
+**Caminho:** [`.github/workflows/sonarcloud.yml`](../../../.github/workflows/sonarcloud.yml)
+**Disparos:** apenas dispatch manual (até `SONAR_TOKEN` estar configurado).
 **Timeout:** 30 min.
-**Permissions:** `contents: read`, `pull-requests: read`.
+**Permissões:** `contents: read`, `pull-requests: read`.
 
-Runs on `windows-latest` because the dotnet-sonarscanner CLI tool has
-better Windows support and the team's solution compiles cleanly there.
+Corre em `windows-latest` porque a ferramenta CLI dotnet-sonarscanner tem
+melhor suporte em Windows e a solução da equipa compila limpamente lá.
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
-| 1 | `Checkout` (fetch-depth: 0) | Pulls full history. | Sonar uses git blame for "new code" detection. |
-| 2 | `Setup .NET` | Same as build-test. | Build is required for analysis. |
-| 3 | `Setup Java` | Temurin 17. | SonarScanner is a Java tool. |
-| 4 | `Cache SonarCloud packages` | Caches `~\sonar\cache`. | Avoid re-downloading the analyzer. |
-| 5 | `Cache SonarScanner` | Caches `.\.sonar\scanner`. | Avoid re-installing the dotnet global tool. |
-| 6 | `Install SonarScanner` | `dotnet tool update dotnet-sonarscanner`. | Only runs on cache miss. |
-| 7 | `Build & Analyze` | `sonarscanner begin … && dotnet build && sonarscanner end`. | Begin sets up an instrumentation hook, build collects data, end uploads. Skipped if `SONAR_TOKEN` is empty. |
+| 1 | `Checkout` (fetch-depth: 0) | Obtém o histórico completo. | O Sonar usa git blame para detetar "código novo". |
+| 2 | `Setup .NET` | Igual à build-test. | A build é obrigatória para análise. |
+| 3 | `Setup Java` | Temurin 17. | O SonarScanner é uma ferramenta Java. |
+| 4 | `Cache SonarCloud packages` | Cache de `~\sonar\cache`. | Evita voltar a transferir o analisador. |
+| 5 | `Cache SonarScanner` | Cache de `.\.sonar\scanner`. | Evita voltar a instalar a ferramenta global dotnet. |
+| 6 | `Install SonarScanner` | `dotnet tool update dotnet-sonarscanner`. | Só corre se faltar à cache. |
+| 7 | `Build & Analyze` | `sonarscanner begin … && dotnet build && sonarscanner end`. | Begin instala um hook de instrumentação, build recolhe dados, end carrega. Saltado se `SONAR_TOKEN` estiver vazio. |
 
-**Setup:** see [§14](#14-sonarcloud-optional-setup).
+**Configuração:** ver [§14](#14-sonarcloud-configuração-opcional).
 
 ---
 
-### 5.5 `dependency-review.yml` — SCA on PR diff
+### 5.5 `dependency-review.yml` — SCA sobre o diff do PR
 
-**Path:** [`.github/workflows/dependency-review.yml`](../../../.github/workflows/dependency-review.yml)
-**Triggers:** pull_request only.
+**Caminho:** [`.github/workflows/dependency-review.yml`](../../../.github/workflows/dependency-review.yml)
+**Disparos:** apenas pull_request.
 **Timeout:** 5 min.
-**Permissions:** `contents: read`, `pull-requests: write` (for the inline
-PR comment on failure).
+**Permissões:** `contents: read`, `pull-requests: write` (para o
+comentário inline no PR em caso de falha).
 
 #### Job: `dependency-review`
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
-| 1 | `Checkout` | Standard. | — |
-| 2 | `Dependency Review` | `actions/dependency-review-action@v4` with `fail-on-severity: high`, `license-check: true`, `deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0`, `comment-summary-in-pr: on-failure`. | Compares the PR's lockfile/csproj diff against the GitHub Advisory Database. Blocks new HIGH CVE deps or copyleft licences. Adds a PR comment listing offending packages only on failure (keeps the PR clean otherwise). |
+| 1 | `Checkout` | Padrão. | — |
+| 2 | `Dependency Review` | `actions/dependency-review-action@v4` com `fail-on-severity: high`, `license-check: true`, `deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0`, `comment-summary-in-pr: on-failure`. | Compara o diff do lockfile / csproj do PR contra a GitHub Advisory Database. Bloqueia novas dependências com CVE HIGH ou licenças copyleft. Adiciona um comentário ao PR listando pacotes problemáticos apenas em caso de falha (mantém o PR limpo no resto dos casos). |
 
-**Requires:** the repo's **Dependency graph** must be enabled in
-*Settings → Code security*. Otherwise the action errors with "Dependency
-review is not supported on this repository".
+**Requer:** o **Dependency graph** do repositório tem de estar ativo em
+*Settings → Code security*. Caso contrário, a action sai com erro
+"Dependency review is not supported on this repository".
 
 ---
 
-### 5.6 `security-scan.yml` — SCA + in-build SAST + Trivy image
+### 5.6 `security-scan.yml` — SCA + SAST em build + Trivy imagem
 
-**Path:** [`.github/workflows/security-scan.yml`](../../../.github/workflows/security-scan.yml)
-**Triggers:** push/PR/weekly (Mondays 06:00 UTC) / manual.
-**Permissions:** workflow-level `contents: read`; `container-scan` job
-also requires `security-events: write` for SARIF upload.
+**Caminho:** [`.github/workflows/security-scan.yml`](../../../.github/workflows/security-scan.yml)
+**Disparos:** push/PR/semanal (segundas 06:00 UTC) / manual.
+**Permissões:** ao nível do workflow `contents: read`; o job `container-scan`
+também requer `security-events: write` para carregar o SARIF.
 
-#### Job 1 — `sca` (Vulnerable NuGet packages)
+#### Job 1 — `sca` (pacotes NuGet vulneráveis)
 **Timeout:** 10 min.
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
-| 1 | `actions/checkout@v4` | Standard. | — |
-| 2 | `Setup .NET` | Installs SDK. | — |
-| 3 | `Restore packages` | `dotnet restore`. | Required before `list package`. |
-| 4 | `Check for vulnerable packages` | `dotnet list … package --vulnerable --include-transitive` piped to `tee vulnerable-packages.txt`. Grep for the "has the following vulnerable packages" header → exit 1 if present. | Vulnerability data comes from the NuGet feed via Microsoft. Includes transitive dependencies (the ones our direct packages pull in). |
-| 5 | `Upload SCA report` | Uploads `vulnerable-packages.txt`. | Persists the human-readable table even if no findings. |
+| 1 | `actions/checkout@v4` | Padrão. | — |
+| 2 | `Setup .NET` | Instala SDK. | — |
+| 3 | `Restore packages` | `dotnet restore`. | Necessário antes do `list package`. |
+| 4 | `Check for vulnerable packages` | `dotnet list … package --vulnerable --include-transitive` redirecionado por `tee vulnerable-packages.txt`. Grep para o cabeçalho "has the following vulnerable packages" → exit 1 se presente. | Os dados de vulnerabilidade vêm do feed NuGet via Microsoft. Inclui dependências transitivas (as que os nossos pacotes diretos puxam). |
+| 5 | `Upload SCA report` | Carrega `vulnerable-packages.txt`. | Persiste a tabela legível mesmo se não houver ocorrências. |
 
-#### Job 2 — `sast` (.NET analyzers + Security Code Scan)
+#### Job 2 — `sast` (analisadores .NET + Security Code Scan)
 **Timeout:** 20 min.
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
-| 1 | Checkout + setup .NET. | Standard. | — |
-| 2 | `Install Security Code Scan analyzer` | `dotnet tool install --global security-scan --version 5.6.7`. | Source-code-only SAST tool, complements CodeQL. |
-| 3 | `Restore & build with analyzers` | `dotnet build … /p:EnableNETAnalyzers=true /p:AnalysisMode=All /warnaserror:CA2100,CA3001..CA3012`. | Roslyn analyzers run during build; specific CAs are promoted to errors (SQL injection, XSS, path traversal, command injection, etc.). Pipes output to `sast-output.txt`. |
-| 4 | `Upload SAST output` | Uploads `sast-output.txt`. | — |
+| 1 | Checkout + setup .NET. | Padrão. | — |
+| 2 | `Install Security Code Scan analyzer` | `dotnet tool install --global security-scan --version 5.6.7`. | Ferramenta SAST só de código-fonte, complementa o CodeQL. |
+| 3 | `Restore & build with analyzers` | `dotnet build … /p:EnableNETAnalyzers=true /p:AnalysisMode=All /warnaserror:CA2100,CA3001..CA3012`. | Analisadores Roslyn correm durante a build; CAs específicos são promovidos a erros (SQL injection, XSS, path traversal, command injection, etc.). Saída redirecionada para `sast-output.txt`. |
+| 4 | `Upload SAST output` | Carrega `sast-output.txt`. | — |
 
-#### Job 3 — `container-scan` (Trivy image)
+#### Job 3 — `container-scan` (Trivy imagem)
 **Timeout:** 25 min.
-**Permissions:** `contents: read`, `security-events: write`.
+**Permissões:** `contents: read`, `security-events: write`.
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
 | 1 | Checkout. | — | — |
-| 2 | `Build Docker image` | `docker build -t lawyerapp:${{ github.sha }} LawyerApp/`. | Build locally, no registry push. |
-| 3 | `Trivy — CRITICAL/HIGH scan` | `aquasecurity/trivy-action@0.35.0` with `severity: "CRITICAL,HIGH"`, `exit-code: "1"`, `ignore-unfixed: true`, `trivyignores: LawyerApp/.trivyignore`, `limit-severities-for-sarif: true`. | Gating step. `ignore-unfixed: true` skips CVEs with no patch available. `limit-severities-for-sarif: true` is the key fix — without it the action expands severity to "all" for SARIF builds, so MEDIUM/LOW would fail the gate (see [§12](#12-troubleshooting)). |
-| 4 | `Upload SARIF` | Uploads under category `trivy-image`. | — |
-| 5 | `Trivy — full JSON report` | Same image, all severities, no exit-code. | Comprehensive record for offline analysis. |
-| 6 | `Upload full Trivy report` | Uploads SARIF + JSON together as `trivy-report` artifact (30 d). | — |
+| 2 | `Build Docker image` | `docker build -t lawyerapp:${{ github.sha }} LawyerApp/`. | Build local, sem push para registo. |
+| 3 | `Trivy — scan for CRITICAL/HIGH` | `aquasecurity/trivy-action@0.35.0` com `severity: "CRITICAL,HIGH"`, `exit-code: "1"`, `ignore-unfixed: true`, `trivyignores: LawyerApp/.trivyignore`, `limit-severities-for-sarif: true`. | Passo de gating. `ignore-unfixed: true` ignora CVEs sem patch disponível. `limit-severities-for-sarif: true` é a correção-chave — sem ele, a action expande severity para "all" para builds SARIF, pelo que MEDIUM/LOW fariam falhar o gate (ver [§12](#12-resolução-de-problemas)). |
+| 4 | `Upload SARIF` | Carrega na categoria `trivy-image`. | — |
+| 5 | `Trivy — full JSON report` | Mesma imagem, todas as severidades, sem exit-code. | Registo abrangente para análise offline. |
+| 6 | `Upload full Trivy report` | Carrega SARIF + JSON juntos como artefacto `trivy-report` (30 d). | — |
 
 ---
 
-### 5.7 `trivy-config.yml` — Filesystem + IaC scan
+### 5.7 `trivy-config.yml` — Análise FS + IaC
 
-**Path:** [`.github/workflows/trivy-config.yml`](../../../.github/workflows/trivy-config.yml)
-**Triggers:** push/PR/manual.
+**Caminho:** [`.github/workflows/trivy-config.yml`](../../../.github/workflows/trivy-config.yml)
+**Disparos:** push/PR/manual.
 **Timeout:** 15 min.
-**Permissions:** `contents: read`, `security-events: write`.
+**Permissões:** `contents: read`, `security-events: write`.
 
 #### Job: `trivy-fs`
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
 | 1 | Checkout. | — | — |
-| 2 | `Trivy — filesystem scan` | `scan-type: fs`, `scan-ref: LawyerApp/`, `severity: CRITICAL,HIGH`, `exit-code: 1`, `ignore-unfixed: true`. | Scans lockfiles + manifests inside `LawyerApp/`. For .NET this is mostly the `.csproj` / `project.assets.json`. |
-| 3 | `Upload filesystem SARIF` | Category `trivy-fs`. | — |
-| 4 | `Trivy — IaC / Dockerfile config scan` | `scan-type: config`, `scan-ref: .`, `severity: CRITICAL,HIGH`, `exit-code: 1`. | Lints Dockerfile (DS-0001…DS-0030 rule set). Caught by the rubric as "configuration validation". |
-| 5 | `Upload IaC SARIF` | Category `trivy-config`. | — |
+| 2 | `Trivy — filesystem scan` | `scan-type: fs`, `scan-ref: LawyerApp/`, `severity: CRITICAL,HIGH`, `exit-code: 1`, `ignore-unfixed: true`. | Analisa lockfiles + manifestos dentro de `LawyerApp/`. Para .NET isto é sobretudo o `.csproj` / `project.assets.json`. |
+| 3 | `Upload filesystem SARIF` | Categoria `trivy-fs`. | — |
+| 4 | `Trivy — IaC / Dockerfile config scan` | `scan-type: config`, `scan-ref: .`, `severity: CRITICAL,HIGH`, `exit-code: 1`. | Faz lint ao Dockerfile (conjunto de regras DS-0001…DS-0030). Apanhado pelo rubric como "validação de configuração". |
+| 5 | `Upload IaC SARIF` | Categoria `trivy-config`. | — |
 
 ---
 
-### 5.8 `sbom.yml` — SBOM generation + Grype
+### 5.8 `sbom.yml` — Geração de SBOM + Grype
 
-**Path:** [`.github/workflows/sbom.yml`](../../../.github/workflows/sbom.yml)
-**Triggers:** push/PR/weekly (Mondays 05:37 UTC) / manual.
-**Permissions:** workflow-level `contents: read`; `grype-second-opinion`
-adds `security-events: write`.
+**Caminho:** [`.github/workflows/sbom.yml`](../../../.github/workflows/sbom.yml)
+**Disparos:** push/PR/semanal (segundas 05:37 UTC) / manual.
+**Permissões:** ao nível do workflow `contents: read`; `grype-second-opinion`
+adiciona `security-events: write`.
 
-#### Job 1 — `cyclonedx-solution` (.NET solution SBOM)
+#### Job 1 — `cyclonedx-solution` (SBOM da solução .NET)
 **Timeout:** 10 min.
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
 | 1 | Checkout + setup .NET. | — | — |
-| 2 | `Install CycloneDX tool` | `dotnet tool install --global CycloneDX`. | Microsoft's official SBOM generator for .NET. |
-| 3 | `Generate SBOM (JSON)` | `dotnet CycloneDX LawyerApp/LawyerApp.sln --output ./sbom --json`. | CycloneDX is the OWASP-backed SBOM standard. JSON is the most portable format. |
-| 4 | `Upload SBOM` | `sbom-cyclonedx` artifact, 90-day retention. | Auditor-facing artifact — proves we can produce an inventory on demand. |
+| 2 | `Install CycloneDX tool` | `dotnet tool install --global CycloneDX`. | Gerador oficial de SBOM da Microsoft para .NET. |
+| 3 | `Generate SBOM (JSON)` | `dotnet CycloneDX LawyerApp/LawyerApp.sln --output ./sbom --json`. | CycloneDX é o standard de SBOM apoiado pela OWASP. JSON é o formato mais portável. |
+| 4 | `Upload SBOM` | Artefacto `sbom-cyclonedx`, retenção 90 dias. | Artefacto para auditor — prova que conseguimos produzir um inventário a pedido. |
 
-#### Job 2 — `syft-image` (Container image SBOM)
+#### Job 2 — `syft-image` (SBOM da imagem de contentor)
 **Timeout:** 20 min.
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
 | 1 | Checkout + Docker Buildx setup. | — | — |
-| 2 | `Build image` | `docker/build-push-action@v6` with GHA cache. | Local build, no push. |
-| 3 | `Generate Syft SBOM (SPDX)` | `anchore/sbom-action@v0` with `format: spdx-json`. | SPDX is the Linux Foundation SBOM standard. Includes every OS package and language-layer dep. |
+| 2 | `Build image` | `docker/build-push-action@v6` com cache GHA. | Build local, sem push. |
+| 3 | `Generate Syft SBOM (SPDX)` | `anchore/sbom-action@v0` com `format: spdx-json`. | SPDX é o standard de SBOM da Linux Foundation. Inclui cada pacote do SO e dependência da camada de linguagem. |
 
-#### Job 3 — `grype-second-opinion` (independent vulnerability scan)
+#### Job 3 — `grype-second-opinion` (análise de vulnerabilidades independente)
 **Timeout:** 20 min.
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
-| 1-3 | Same image build as job 2. | — | — |
-| 4 | `Grype scan` | `anchore/scan-action@v4`, `severity-cutoff: high`, `output-format: sarif`. | Independent CVE database & engine — catches things Trivy may miss and vice versa. |
-| 5 | `Inspect Grype SARIF` | Guard script — sets `found=true` only if the SARIF is non-empty. | The action emits an empty SARIF when there are no findings above the cutoff, which makes the upload step fail (see [§12](#12-troubleshooting)). |
-| 6 | `Upload Grype SARIF` | Category `grype`. Only runs when `found=true`. | — |
+| 1-3 | Mesma build de imagem que o job 2. | — | — |
+| 4 | `Grype scan` | `anchore/scan-action@v4`, `severity-cutoff: high`, `output-format: sarif`. | Base de dados de CVE e motor independentes — apanha coisas que o Trivy pode deixar passar e vice-versa. |
+| 5 | `Inspect Grype SARIF` | Script de salvaguarda — coloca `found=true` apenas se o SARIF não estiver vazio. | A action emite um SARIF vazio quando não há ocorrências acima do cutoff, o que faz falhar o passo de upload (ver [§12](#12-resolução-de-problemas)). |
+| 6 | `Upload Grype SARIF` | Categoria `grype`. Só corre quando `found=true`. | — |
 
 ---
 
 ### 5.9 `secrets-scan.yml` — Gitleaks + TruffleHog
 
-**Path:** [`.github/workflows/secrets-scan.yml`](../../../.github/workflows/secrets-scan.yml)
-**Triggers:** push/PR/weekly (Mondays 07:07 UTC) / manual.
-**Permissions:** `contents: read`, `security-events: write`.
+**Caminho:** [`.github/workflows/secrets-scan.yml`](../../../.github/workflows/secrets-scan.yml)
+**Disparos:** push/PR/semanal (segundas 07:07 UTC) / manual.
+**Permissões:** `contents: read`, `security-events: write`.
 
 #### Job 1 — `gitleaks`
 **Timeout:** 10 min.
 
-We run the **gitleaks binary directly** rather than `gitleaks/gitleaks-action@v2`
-because v2 requires a paid licence for organisation-owned repos
-(`mei-desofs` is an org). The binary itself is MIT-licensed and free.
+Corremos o **binário do gitleaks diretamente** em vez do
+`gitleaks/gitleaks-action@v2` porque o v2 exige uma licença paga para
+repositórios pertencentes a organizações (`mei-desofs` é uma
+organização). O binário em si é licenciado MIT e gratuito.
 
-| # | Step | What it does | Why |
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
-| 1 | `Checkout (full history)` | `fetch-depth: 0`. | Scans every commit, not just HEAD — a secret committed and later removed is still a leak. |
-| 2 | `Install gitleaks` | curl release + tar to `/usr/local/bin/`. Pin version `8.18.4`. | Avoids the licensed action. |
-| 3 | `Run gitleaks (full history)` | `gitleaks detect --source . --config .gitleaks.toml --report-format sarif --report-path gitleaks.sarif --redact --exit-code 1 --verbose`. | `.gitleaks.toml` carries the documented allowlist (see [§6.1](#61-gitleakstoml)). `--redact` masks secret values in the report. |
-| 4 | `Upload SARIF to GitHub Security` | Category `gitleaks`. Only if SARIF non-empty. | — |
-| 5 | `Upload Gitleaks report artifact` | `gitleaks-report`, 30-day retention. | — |
-| 6 | `Fail on findings` | Exits 1 if step 3's exit code was non-zero. | Decoupled from the SARIF step so the artifact still gets uploaded on failure. |
+| 1 | `Checkout (full history)` | `fetch-depth: 0`. | Analisa cada commit, não apenas HEAD — um segredo que foi feito commit e depois removido continua a ser uma fuga. |
+| 2 | `Install gitleaks` | curl da release + tar para `/usr/local/bin/`. Versão fixada `8.18.4`. | Evita a action licenciada. |
+| 3 | `Run gitleaks (full history)` | `gitleaks detect --source . --config .gitleaks.toml --report-format sarif --report-path gitleaks.sarif --redact --exit-code 1 --verbose`. | O `.gitleaks.toml` contém a allowlist documentada (ver [§6.1](#61-gitleakstoml)). `--redact` mascara valores de segredos no relatório. |
+| 4 | `Upload SARIF to GitHub Security` | Categoria `gitleaks`. Só se SARIF não vazio. | — |
+| 5 | `Upload Gitleaks report artifact` | `gitleaks-report`, retenção 30 dias. | — |
+| 6 | `Fail on findings` | Sai com 1 se o exit code do passo 3 foi não-zero. | Separado do passo de SARIF para que o artefacto seja carregado mesmo em falha. |
 
 #### Job 2 — `trufflehog`
 **Timeout:** 10 min.
 
-| # | Step | What it does | Why |
+Corremos o **binário trufflehog diretamente** em vez do
+`trufflesecurity/trufflehog@main`. A action embrulha uma imagem Docker
+em `ghcr.io` cuja transferência expira intermitentemente nos runners
+GitHub-hosted (`docker: context deadline exceeded`). O binário em si
+não tem dependências externas em runtime e instala em segundos.
+
+| # | Passo | O que faz | Porquê |
 |---|---|---|---|
-| 1 | `Checkout (full history)` | Standard. | — |
-| 2 | `TruffleHog scan` | `trufflesecurity/trufflehog@main` with `--results=verified,unknown` on `${base}..HEAD`. | "Verified" means TruffleHog actively API-checks the credential against the issuer. Massively reduces false positives compared to entropy-only scanning. |
+| 1 | `Checkout (full history)` | `fetch-depth: 0`. | Necessário para `--since-commit` em PRs e para scan ao histórico completo em push. |
+| 2 | `Install trufflehog` | curl da release `v3.95.3` + tar para `/usr/local/bin/`. | Evita a action e o pull da imagem em `ghcr.io`. |
+| 3 | `TruffleHog (PR diff)` | `trufflehog git file://. --since-commit "$BASE_SHA" --branch "$HEAD_SHA" --results=verified --fail --no-update`. Só corre em pull_request. | Compara o diff entre base e head do PR; `--results=verified` significa que o TruffleHog confirmou a credencial contra a API do emissor (sem falsos positivos por definição). |
+| 4 | `TruffleHog (full history)` | `trufflehog git file://. --results=verified --fail --no-update`. Corre em push / schedule / dispatch. | Análise ao histórico completo. Mantemos `--results=verified` para evitar ruído de placeholders em documentação (por exemplo, `Password=postgres` em exemplos). O Gitleaks corre em paralelo com o ruleset por defeito e cobre o caso "unknown". |
 
 ---
 
-### 5.10 `config-validation.yml` — Configuration validation
+### 5.10 `config-validation.yml` — Validação de configuração
 
-**Path:** [`.github/workflows/config-validation.yml`](../../../.github/workflows/config-validation.yml)
-**Triggers:** push/PR/manual.
-**Permissions:** `contents: read`, `security-events: write` (Hadolint
-SARIF upload).
+**Caminho:** [`.github/workflows/config-validation.yml`](../../../.github/workflows/config-validation.yml)
+**Disparos:** push/PR/manual.
+**Permissões:** `contents: read`, `security-events: write` (upload do
+SARIF do Hadolint).
 
-Five independent jobs (~5 min each):
+Cinco jobs independentes (~5 min cada):
 
 #### `dockerfile-lint` — Hadolint
-1. `Hadolint (SARIF output)` — uses `hadolint/hadolint-action@v3.1.0` with
-   `no-fail: true` so SARIF is uploaded even when issues exist.
-2. `Upload Hadolint SARIF` — category `hadolint`.
-3. `Hadolint (fail on error severity)` — second invocation with
-   `failure-threshold: error` to gate the build. Splitting the two
-   invocations is the cleanest way to upload SARIF for warnings while
-   still gating on errors.
+1. `Hadolint (SARIF output)` — usa `hadolint/hadolint-action@v3.1.0` com
+   `no-fail: true` para que o SARIF seja carregado mesmo quando existem
+   problemas.
+2. `Upload Hadolint SARIF` — categoria `hadolint`.
+3. `Hadolint (fail on error severity)` — segunda invocação com
+   `failure-threshold: error` para fazer gate à build. Dividir as duas
+   invocações é a forma mais limpa de carregar SARIF para warnings
+   continuando a fazer gate em erros.
 
 #### `workflow-lint` — actionlint
-Downloads the actionlint binary via the upstream `download-actionlint.bash`
-script and runs `actionlint -color`. Catches:
-- Unknown action inputs / outputs.
-- Shell-injection patterns in `run:` blocks (`${{ … }}` of untrusted
-  origin).
-- Invalid `if:` expressions.
-- Missing `secrets:` declarations.
+Transfere o binário do actionlint via o script upstream
+`download-actionlint.bash` e executa `actionlint -color`. Apanha:
+- Inputs / outputs de actions desconhecidos.
+- Padrões de shell-injection em blocos `run:` (`${{ … }}` de origem não
+  confiável).
+- Expressões `if:` inválidas.
+- Declarações `secrets:` em falta.
 
 #### `yaml-lint` — yamllint
-Generic YAML hygiene on the `.github/` tree. Rules tuned to avoid noisy
-warnings about line length and quoted `on:` keys.
+Higiene genérica de YAML na árvore `.github/`. Regras afinadas para
+evitar warnings ruidosos sobre comprimento de linha e chaves `on:` entre
+aspas.
 
-#### `json-validation` — appsettings.json + plaintext-secret guard
+#### `json-validation` — appsettings.json + guard de segredos em texto
 1. `Install jq`.
-2. `Validate appsettings*.json syntax` — `jq empty` on every
+2. `Validate appsettings*.json syntax` — `jq empty` em cada
    `LawyerApp/**/appsettings*.json`.
-3. `Forbid plaintext secrets in appsettings*.json` — regex sweep for
+3. `Forbid plaintext secrets in appsettings*.json` — varredura regex de
    `(Password|Pwd|ApiKey|Secret|Token|ConnectionString)\s*=\s*[^"$ ]{4,}`.
-   Allowlists dev placeholders (`Password=postgres`, `Server=localhost`)
-   only when the file is named `*.Development.json`.
+   Coloca em allowlist placeholders de desenvolvimento (`Password=postgres`,
+   `Server=localhost`) apenas quando o ficheiro se chama
+   `*.Development.json`.
 
-#### `dotnet-format` — style consistency
+#### `dotnet-format` — consistência de estilo
 `dotnet format … --verify-no-changes --severity warn`. `continue-on-error: true`
-so style drift doesn't fail the build today, but the warning is visible.
+para que o desvio de estilo não falhe a build hoje, mas o warning fica
+visível.
 
-## 6. Configuration files
+## 6. Ficheiros de configuração
 
 ### 6.1 `.gitleaks.toml`
 
-**Path:** [`/.gitleaks.toml`](../../../.gitleaks.toml)
-**Purpose:** allowlist of documented false positives.
+**Caminho:** [`/.gitleaks.toml`](../../../.gitleaks.toml)
+**Propósito:** allowlist de falsos positivos documentados.
 
 ```toml
 [extend]
-useDefault = true              # build on top of the default ruleset
+useDefault = true              # constrói sobre o ruleset por defeito
 
 [allowlist]
 regexes = [
@@ -510,96 +531,101 @@ paths = [
 ]
 ```
 
-**Why the regex:** .NET assembly `PublicKeyToken=<hex>` values are *public*
-identifiers of signed assemblies (e.g. `b03f5f7f11d50a3a` for `System.Web`).
-Gitleaks' `generic-api-key` rule misclassifies them as random tokens
-because they have high entropy.
+**Porquê o regex:** os valores `PublicKeyToken=<hex>` de assemblies .NET
+são identificadores *públicos* de assemblies assinados (por exemplo,
+`b03f5f7f11d50a3a` para `System.Web`). A regra `generic-api-key` do
+Gitleaks classifica-os incorretamente como tokens aleatórios porque têm
+entropia elevada.
 
-**Why the paths:** `.vs/`, `bin/`, `obj/` are IDE/build-output folders.
-Even after we untracked them in commit `7e33e6f`, the full-history scan
-keeps surfacing entries from earlier commits.
+**Porquê os paths:** `.vs/`, `bin/`, `obj/` são pastas de IDE / saída de
+build. Mesmo depois de termos deixado de seguir esses ficheiros no commit
+`7e33e6f`, a análise de histórico completo continua a expor entradas de
+commits anteriores.
 
 ### 6.2 `LawyerApp/.trivyignore`
 
-**Path:** [`LawyerApp/.trivyignore`](../../../LawyerApp/.trivyignore)
-**Purpose:** suppressed CVE IDs with a reviewed-on date and one-line
-justification.
+**Caminho:** [`LawyerApp/.trivyignore`](../../../LawyerApp/.trivyignore)
+**Propósito:** IDs de CVE suprimidos com data de revisão e justificação
+de uma linha.
 
 ```
-CVE-2026-0861    # Reviewed 2026-05-17: libc-bin / libc6 — pending Microsoft image rebuild
-CVE-2026-4878    # Reviewed 2026-05-17: libcap2 — pending Microsoft image rebuild
-CVE-2026-29111   # Reviewed 2026-05-17: libsystemd0 / libudev1 — pending Microsoft image rebuild
+CVE-2026-0861    # Revisto 2026-05-17: libc-bin / libc6 — pendente rebuild da imagem Microsoft
+CVE-2026-4878    # Revisto 2026-05-17: libcap2 — pendente rebuild da imagem Microsoft
+CVE-2026-29111   # Revisto 2026-05-17: libsystemd0 / libudev1 — pendente rebuild da imagem Microsoft
 ```
 
-**Process:** every entry **must** include the date reviewed, the package,
-and a one-line justification. Re-audit quarterly — if the upstream image
-rebuilds with the fixed package version, **remove the entry** so the
-suppression doesn't outlive its rationale.
+**Processo:** cada entrada **deve** incluir a data revista, o pacote, e
+uma justificação de uma linha. Reauditar trimestralmente — se a imagem
+upstream for reconstruída com a versão patched do pacote, **remover a
+entrada** para que a supressão não sobreviva à sua razão de ser.
 
-Wired into both Trivy steps in `security-scan.yml` via the
-`trivyignores: LawyerApp/.trivyignore` action input.
+Ligado a ambos os passos do Trivy em `security-scan.yml` via o input
+`trivyignores: LawyerApp/.trivyignore` da action.
 
 ### 6.3 `.github/dependabot.yml`
 
-**Path:** [`.github/dependabot.yml`](../../../.github/dependabot.yml)
-**Purpose:** automated weekly dependency-update PRs.
+**Caminho:** [`.github/dependabot.yml`](../../../.github/dependabot.yml)
+**Propósito:** PRs automáticos semanais de atualização de dependências.
 
-Four ecosystems configured:
+Quatro ecossistemas configurados:
 
-| Ecosystem | Directory | Schedule | Group |
+| Ecossistema | Diretório | Agendamento | Grupo |
 |---|---|---|---|
-| `nuget` | `/LawyerApp` | Monday 03:00 Europe/Lisbon | `microsoft`, `ef-core`, `security` |
-| `nuget` | `/LawyerApp.Tests` | Monday 03:15 Europe/Lisbon | (none) |
-| `github-actions` | `/` | Monday 03:30 Europe/Lisbon | (none) |
-| `docker` | `/LawyerApp` | Monday 04:00 Europe/Lisbon | (none) |
+| `nuget` | `/LawyerApp` | Segunda 03:00 Europe/Lisbon | `microsoft`, `ef-core`, `security` |
+| `nuget` | `/LawyerApp.Tests` | Segunda 03:15 Europe/Lisbon | (nenhum) |
+| `github-actions` | `/` | Segunda 03:30 Europe/Lisbon | (nenhum) |
+| `docker` | `/LawyerApp` | Segunda 04:00 Europe/Lisbon | (nenhum) |
 
-Commit-message prefixes (`chore(deps)`, `chore(test-deps)`, `chore(ci)`,
-`chore(docker)`) make it easy to filter Dependabot PRs.
+Prefixos de commit message (`chore(deps)`, `chore(test-deps)`,
+`chore(ci)`, `chore(docker)`) facilitam a filtragem de PRs do Dependabot.
 
 ### 6.4 `.gitignore`
 
-**Path:** [`/.gitignore`](../../../.gitignore)
-**Purpose:** stop tracking build outputs, IDE state, and scan reports.
+**Caminho:** [`/.gitignore`](../../../.gitignore)
+**Propósito:** deixar de seguir saídas de build, estado do IDE e
+relatórios de análise.
 
-Notable additions vs the original template:
-- `**/bin/`, `**/obj/` — .NET build output.
-- `.vs/`, `*.user` — Visual Studio per-user state.
+Adições notáveis face ao template original:
+- `**/bin/`, `**/obj/` — saída de build .NET.
+- `.vs/`, `*.user` — estado por-utilizador do Visual Studio.
 - `coverage/`, `TestResults/`, `**/coverage.cobertura.xml`.
 - `*.sarif`, `sbom/`, `*.spdx.json`, `*.cyclonedx.json`,
   `vulnerable-packages.txt`, `trivy-*.sarif`, `semgrep.sarif`,
-  `hadolint.sarif`, `sast-output.txt` — every pipeline output filename.
+  `hadolint.sarif`, `sast-output.txt` — todos os nomes de ficheiro de
+  saída da pipeline.
 - `appsettings.Local.json`, `secrets.json`, `*.pfx`, `*.key`, `*.pem`,
-  `.env`, `.env.*` (`!.env.example` kept).
+  `.env`, `.env.*` (`!.env.example` mantido).
 
-## 7. Tools used and rationale
+## 7. Ferramentas utilizadas e justificação
 
-Why each tool was chosen, the alternatives considered, and where its
-limits are.
+Porque cada ferramenta foi escolhida, as alternativas consideradas e
+onde estão os seus limites.
 
-| Tool | Category | Chosen because | Alternatives considered | Limit |
+| Ferramenta | Categoria | Escolhida porque | Alternativas consideradas | Limite |
 |---|---|---|---|---|
-| **`dotnet` CLI** | Build/Test | First-party, only practical option for .NET. | — | — |
-| **CodeQL** | SAST | First-party, free on public repos, deep semantic analysis. SARIF integration is best-in-class. | SonarCloud, PVS-Studio, NDepend. | Slower than Semgrep; requires a build (true for compiled languages anyway). |
-| **Semgrep** | SAST | Open-source, fast (~1 min), broad rule packs, no build needed. Catches things CodeQL misses (Dockerfile / secrets / cross-language patterns). | Bandit (Python-only), gosec (Go-only). | Pattern-based — less precise than CodeQL for complex flows. |
-| **Security Code Scan** | SAST | .NET-specific, runs in-build as a Roslyn analyzer, catches CA-classified issues at compile time. | `Microsoft.CodeAnalysis.NetAnalyzers` only. | Last release 5.6.7 (somewhat stale); we use it as additional, not primary. |
-| **SonarCloud** | SAST | Best-in-class quality gate UX (PR comments, hotspots, coverage overlay). | None comparable. | Requires a SaaS account; manual setup, hence optional. |
-| **GitHub Dependency Review** | SCA | First-party, runs only on the PR diff, fastest feedback for the contributor. | Snyk PR check. | Only reports new vulns introduced by the PR — doesn't catch pre-existing ones. |
-| **`dotnet list package --vulnerable`** | SCA | First-party, simplest possible check, runs against the NuGet feed. | OWASP Dependency-Check. | Requires `dotnet restore` first; report is plain text. |
-| **Dependabot** | SCA | First-party, automated PR creation, group rules, native to GitHub. | Renovate. | Granular grouping is less expressive than Renovate. |
-| **CycloneDX** | SBOM | OWASP-backed standard, .NET tooling is first-party (Microsoft). | SPDX (used elsewhere — see Syft). | — |
-| **Syft (Anchore)** | SBOM | De-facto standard for container images, SPDX output. | CycloneDX-cli. | — |
-| **Trivy** | Container + IaC + filesystem | Single tool that covers three rubric areas, very widely adopted. | Snyk, Clair, Anchore Engine. | Some quirks around severity filtering — see [§12](#12-troubleshooting). |
-| **Grype (Anchore)** | Container (second opinion) | Independent engine + DB, lightweight, catches what Trivy misses. | None added — we already have Trivy. | — |
-| **Hadolint** | Config (Dockerfile) | De-facto Dockerfile linter, integrates with SARIF. | Dockerlinter (less mature). | — |
-| **actionlint** | Config (workflows) | Catches GitHub Actions–specific bugs (shell injection, missing inputs). | yamllint alone misses these. | — |
-| **yamllint** | Config (YAML) | Generic YAML hygiene. | — | — |
-| **`jq`** | Config (JSON) | Standard JSON CLI tool. | Python `json.tool`. | — |
-| **Gitleaks** | Secrets | Open-source, mature, configurable. | TruffleHog (also in pipeline). | gitleaks-action@v2 needs a paid licence for orgs — we use the binary directly. |
-| **TruffleHog** | Secrets | "Verified" mode validates credentials by hitting the issuer's API. Much lower false-positive rate than entropy-only scanning. | Gitleaks alone. | Slower than Gitleaks; we run it on PR diff only. |
+| **`dotnet` CLI** | Build/Test | First-party, única opção prática para .NET. | — | — |
+| **CodeQL** | SAST | First-party, gratuita em repositórios públicos, análise semântica profunda. Integração SARIF é a melhor da classe. | SonarCloud, PVS-Studio, NDepend. | Mais lento do que o Semgrep; precisa de build (verdade para linguagens compiladas de qualquer forma). |
+| **Semgrep** | SAST | Open-source, rápido (~1 min), conjuntos de regras amplos, não precisa de build. Apanha coisas que o CodeQL deixa passar (Dockerfile / secrets / padrões cross-language). | Bandit (só Python), gosec (só Go). | Baseado em padrões — menos preciso do que CodeQL para fluxos complexos. |
+| **Security Code Scan** | SAST | Específica de .NET, corre em build como analisador Roslyn, apanha problemas classificados como CA em tempo de compilação. | Só `Microsoft.CodeAnalysis.NetAnalyzers`. | Última release 5.6.7 (um pouco velha); usamos como adicional, não primária. |
+| **SonarCloud** | SAST | Melhor UX para quality gate (comentários em PR, hotspots, overlay de cobertura). | Nenhuma comparável. | Exige conta SaaS; configuração manual, daí opcional. |
+| **GitHub Dependency Review** | SCA | First-party, corre só no diff do PR, feedback mais rápido para o contribuidor. | Snyk PR check. | Só reporta vulns novas introduzidas pelo PR — não apanha as pré-existentes. |
+| **`dotnet list package --vulnerable`** | SCA | First-party, verificação mais simples possível, corre contra o feed NuGet. | OWASP Dependency-Check. | Exige `dotnet restore` primeiro; relatório é texto. |
+| **Dependabot** | SCA | First-party, criação automática de PRs, regras de agrupamento, nativo do GitHub. | Renovate. | Agrupamento granular é menos expressivo que Renovate. |
+| **CycloneDX** | SBOM | Standard apoiado pela OWASP, ferramentas .NET são first-party (Microsoft). | SPDX (usado noutro lado — ver Syft). | — |
+| **Syft (Anchore)** | SBOM | De facto o standard para imagens de contentor, saída SPDX. | CycloneDX-cli. | — |
+| **Trivy** | Contentor + IaC + filesystem | Ferramenta única que cobre três áreas do rubric, muito amplamente adotada. | Snyk, Clair, Anchore Engine. | Algumas peculiaridades à volta de filtragem de severidade — ver [§12](#12-resolução-de-problemas). |
+| **Grype (Anchore)** | Contentor (segunda opinião) | Motor + BD independentes, leve, apanha o que o Trivy deixa passar. | Nenhuma adicionada — já temos Trivy. | — |
+| **Hadolint** | Configuração (Dockerfile) | De facto o linter de Dockerfile, integra com SARIF. | Dockerlinter (menos maduro). | — |
+| **actionlint** | Configuração (workflows) | Apanha bugs específicos de GitHub Actions (shell injection, inputs em falta). | yamllint sozinho deixa passar estes. | — |
+| **yamllint** | Configuração (YAML) | Higiene genérica de YAML. | — | — |
+| **`jq`** | Configuração (JSON) | Ferramenta CLI standard para JSON. | Python `json.tool`. | — |
+| **Gitleaks** | Segredos | Open-source, madura, configurável. | TruffleHog (também na pipeline). | gitleaks-action@v2 precisa de licença paga para orgs — usamos o binário diretamente. |
+| **TruffleHog** | Segredos | O modo "verified" valida credenciais contra a API do emissor. Taxa de falsos positivos muito mais baixa do que análise só por entropia. | Gitleaks sozinho. | Mais lenta do que o Gitleaks. A action upstream depende de uma imagem ghcr.io que falha por timeout — corremos o binário diretamente. |
 
-## 8. Running every check locally
+## 8. Executar cada verificação localmente
 
-Every check in CI can be reproduced locally. Run from the repo root.
+Cada verificação em CI pode ser reproduzida localmente. Correr a partir
+da raiz do repositório.
 
 ### Build & Test
 ```bash
@@ -611,28 +637,29 @@ dotnet publish LawyerApp/LawyerApp.csproj -c Release --output ./publish /p:UseAp
 ```
 
 ### CodeQL
-Use the CodeQL CLI bundle from <https://github.com/github/codeql-action/releases>
-or simply rely on the CI run. Local CodeQL is heavy (~15 min for setup);
-in practice nobody runs it locally for incremental changes.
+Usar o bundle CLI do CodeQL de <https://github.com/github/codeql-action/releases>
+ou simplesmente confiar na execução em CI. Correr CodeQL localmente é
+pesado (~15 min de setup); na prática ninguém o corre localmente para
+alterações incrementais.
 
 ### Semgrep
 ```bash
-# Install once
+# Instalar uma vez
 brew install semgrep                 # macOS
-pipx install semgrep                 # any platform
+pipx install semgrep                 # qualquer plataforma
 
 semgrep ci --config=p/default --config=p/security-audit \
            --config=p/csharp --config=p/dockerfile --config=p/secrets .
 ```
 
-### .NET analyzers
+### Analisadores .NET
 ```bash
 dotnet build LawyerApp/LawyerApp.sln -c Release \
   /p:EnableNETAnalyzers=true /p:AnalysisMode=All \
   /warnaserror:CA2100,CA3001,CA3002,CA3003,CA3006,CA3007,CA3010,CA3011,CA3012
 ```
 
-### SCA — vulnerable / deprecated / outdated NuGet packages
+### SCA — pacotes NuGet vulneráveis / deprecated / outdated
 ```bash
 dotnet restore LawyerApp/LawyerApp.sln
 dotnet list LawyerApp/LawyerApp.sln package --vulnerable --include-transitive
@@ -640,35 +667,35 @@ dotnet list LawyerApp/LawyerApp.sln package --deprecated
 dotnet list LawyerApp/LawyerApp.sln package --outdated
 ```
 
-### CycloneDX SBOM
+### SBOM CycloneDX
 ```bash
 dotnet tool install --global CycloneDX
 dotnet CycloneDX LawyerApp/LawyerApp.sln --output ./sbom --json
 ```
 
-### Container build + Trivy + Grype + Syft (Docker required)
+### Build de contentor + Trivy + Grype + Syft (precisa Docker)
 ```bash
-# Build the image locally
+# Construir a imagem localmente
 docker build -t lawyerapp:local LawyerApp/
 
-# Trivy image scan (matches CI exactly)
+# Análise Trivy à imagem (igual à do CI)
 docker run --rm -v "$(pwd):/repo" -w /repo aquasec/trivy:0.69.3 \
   image --severity CRITICAL,HIGH --ignore-unfixed \
   --ignorefile LawyerApp/.trivyignore lawyerapp:local
 
-# Trivy filesystem scan
+# Análise Trivy ao sistema de ficheiros
 docker run --rm -v "$(pwd):/repo" -w /repo aquasec/trivy:0.69.3 \
   fs --severity CRITICAL,HIGH --ignore-unfixed LawyerApp/
 
-# Trivy Dockerfile config scan
+# Análise Trivy à configuração do Dockerfile
 docker run --rm -v "$(pwd):/repo" -w /repo aquasec/trivy:0.69.3 \
   config LawyerApp/Dockerfile
 
-# Syft SBOM of the image
+# SBOM Syft da imagem
 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
   anchore/syft lawyerapp:local -o spdx-json
 
-# Grype scan of the image
+# Análise Grype à imagem
 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
   anchore/grype lawyerapp:local --fail-on high
 ```
@@ -689,245 +716,302 @@ brew install yamllint
 yamllint -d "{extends: default, rules: {line-length: disable, truthy: {check-keys: false}}}" .github/
 ```
 
-### Gitleaks (full history)
+### Gitleaks (histórico completo)
 ```bash
-# Install once
+# Instalar uma vez
 brew install gitleaks                # macOS
-# or download binary from https://github.com/gitleaks/gitleaks/releases
+# ou descarregar o binário de https://github.com/gitleaks/gitleaks/releases
 
 gitleaks detect --source . --config .gitleaks.toml --redact --verbose
 ```
 
-### TruffleHog (PR diff)
+### TruffleHog (diff do PR)
 ```bash
-docker run --rm -v "$(pwd):/repo" -w /repo trufflesecurity/trufflehog:latest \
-  git file:///repo --since-commit=origin/main --results=verified,unknown
+# Instalar uma vez
+brew install trufflehog                # macOS
+# ou descarregar o binário de https://github.com/trufflesecurity/trufflehog/releases
+
+# Análise full-history (espelha o passo de CI)
+trufflehog git "file://$PWD" --results=verified --fail --no-update
+
+# Diff entre dois commits (espelha o passo de PR em CI)
+trufflehog git "file://$PWD" \
+  --since-commit "$(git merge-base origin/main HEAD)" \
+  --branch HEAD --results=verified --fail --no-update
 ```
 
-### appsettings JSON + plaintext-secret guard
+### Guard de JSON e segredos em texto em appsettings
 ```bash
 for f in LawyerApp/**/appsettings*.json; do jq empty "$f"; done
 grep -E -i '(Password|Pwd|ApiKey|Secret|Token|ConnectionString)\s*=\s*[^"$ ]{4,}' LawyerApp/**/appsettings*.json
 ```
 
-### `dotnet format` style check
+### Verificação de estilo `dotnet format`
 ```bash
 dotnet format LawyerApp/LawyerApp.sln --verify-no-changes --severity warn
 ```
 
-## 9. Interpreting findings
+## 9. Interpretação das ocorrências
 
-Findings surface in three places, each with a different use:
+As ocorrências aparecem em três locais, cada um com uma utilização
+diferente:
 
-### 9.1 The PR's Checks tab
-- One row per workflow job.
-- Click → log viewer with collapsible step output.
-- Best for: figuring out *why* a check failed.
+### 9.1 Separador Checks do PR
+- Uma linha por job de workflow.
+- Click → visualizador de logs com saída de cada passo colapsável.
+- Melhor para: perceber *porque* é que uma verificação falhou.
 
 ### 9.2 Security → Code scanning
-- Aggregates SARIF from CodeQL, Semgrep, Trivy (image / fs / config),
-  Grype, Hadolint, Gitleaks.
-- Each finding has a category (set by `category:` on the upload step),
-  severity, location (file + line), and de-dup fingerprint.
-- Best for: triaging a backlog, marking findings as false-positive or
-  won't-fix (those decisions persist across runs).
+- Agrega SARIF do CodeQL, Semgrep, Trivy (imagem / fs / config), Grype,
+  Hadolint, Gitleaks.
+- Cada ocorrência tem categoria (definida por `category:` no passo de
+  upload), severidade, localização (ficheiro + linha), e fingerprint
+  para deduplicação.
+- Melhor para: triagem de backlog, marcar ocorrências como falso
+  positivo ou won't-fix (essas decisões persistem entre execuções).
 
-### 9.3 Actions → workflow run → Artifacts
-- One artifact per scanner with a human-readable copy of the report
+### 9.3 Actions → execução do workflow → Artifacts
+- Um artefacto por analisador com uma cópia legível do relatório
   (`vulnerable-packages.txt`, `trivy-report`, `sbom-cyclonedx`, etc.).
-- Best for: feeding the result into a downstream tool, attaching to a
-  ticket, or offline review.
+- Melhor para: alimentar o resultado a uma ferramenta downstream,
+  anexar a um ticket, ou revisão offline.
 
-### Severity definitions
+### Definições de severidade
 
-| Severity | Threshold for failing the build | Examples |
+| Severidade | Limiar para falhar a build | Exemplos |
 |---|---|---|
-| **CRITICAL** | Always blocks merge. | RCE in a dep, hardcoded private key. |
-| **HIGH** | Blocks merge unless suppressed with documented justification. | Authentication bypass, SQL injection. |
-| **MEDIUM** | Reported, not gated. | DoS vector, weak crypto. |
-| **LOW** | Reported, not gated. | Style, weak randomness in non-security context. |
+| **CRITICAL** | Bloqueia sempre o merge. | RCE numa dependência, chave privada hardcoded. |
+| **HIGH** | Bloqueia o merge a não ser que suprimida com justificação documentada. | Bypass de autenticação, SQL injection. |
+| **MEDIUM** | Reportada, sem gate. | Vetor DoS, criptografia fraca. |
+| **LOW** | Reportada, sem gate. | Estilo, aleatoriedade fraca em contexto não-segurança. |
 
-## 10. Responding to a failed check
+## 10. Resposta a uma verificação que falha
 
-A decision tree for the most common failure scenarios:
+Árvore de decisão para os cenários de falha mais comuns:
 
 ```
-PR check is red
+Verificação do PR vermelha
 │
-├── Is the failure a build error?
-│   └── Fix the code. CI will turn green automatically.
+├── A falha é um erro de build?
+│   └── Corrigir o código. O CI fica verde automaticamente.
 │
-├── Is it a test failure?
-│   ├── Reproduce locally:
+├── É uma falha de teste?
+│   ├── Reproduzir localmente:
 │   │     dotnet test LawyerApp/LawyerApp.Tests/LawyerApp.Tests.csproj --filter "Name~Failing"
-│   └── Fix and push.
+│   └── Corrigir e fazer push.
 │
-├── Is it a HIGH/CRITICAL CVE in a dependency?
-│   ├── Can we upgrade?  Yes → update the .csproj, push, done.
-│   ├── No fix available (ignore-unfixed already on)?  Investigate exploitability.
-│   ├── Mitigated by deployment context?
-│   │     Add CVE to LawyerApp/.trivyignore with date + justification.
-│   └── Otherwise → block the PR.
+├── É um CVE HIGH/CRITICAL numa dependência?
+│   ├── Conseguimos fazer upgrade?  Sim → atualizar o .csproj, push, feito.
+│   ├── Sem correção disponível (ignore-unfixed já ativo)?  Investigar explorabilidade.
+│   ├── Mitigado pelo contexto de deployment?
+│   │     Adicionar CVE a LawyerApp/.trivyignore com data + justificação.
+│   └── Caso contrário → bloquear o PR.
 │
-├── Is it a HIGH/CRITICAL CVE in the base image?
-│   ├── New Microsoft image available?  Bump the FROM tag (Dependabot will do this).
-│   └── Otherwise → add CVE to .trivyignore with "pending upstream rebuild" note.
+├── É um CVE HIGH/CRITICAL na imagem base?
+│   ├── Nova imagem Microsoft disponível?  Subir a tag FROM (o Dependabot faz isto).
+│   └── Caso contrário → adicionar CVE a .trivyignore com nota "pendente rebuild upstream".
 │
-├── Is it a SAST finding (CodeQL / Semgrep)?
-│   ├── True positive?  Fix the code.
-│   ├── False positive?  Add a suppression comment in code OR mark dismissed
-│   │     in Security → Code scanning (with reason).
+├── É uma ocorrência SAST (CodeQL / Semgrep)?
+│   ├── Verdadeiro positivo?  Corrigir o código.
+│   ├── Falso positivo?  Adicionar comentário de supressão no código OU marcar como
+│   │     descartado em Security → Code scanning (com motivo).
 │
-├── Is it a Gitleaks finding?
-│   ├── Real secret?  Rotate it immediately, revoke the issuer credential,
-│   │     and use BFG / git-filter-repo to scrub history.
-│   ├── False positive?  Add to .gitleaks.toml allowlist with comment.
+├── É uma ocorrência do Gitleaks?
+│   ├── Segredo real?  Rodar imediatamente, revogar a credencial junto do emissor,
+│   │     e usar BFG / git-filter-repo para limpar o histórico.
+│   ├── Falso positivo?  Adicionar ao allowlist de .gitleaks.toml com comentário.
 │
-├── Is it a Dependency Review failure?
-│   ├── Real HIGH CVE?  Choose a different version.
-│   ├── Copyleft licence?  Pick a permissive alternative.
+├── É uma falha do Dependency Review?
+│   ├── CVE HIGH real?  Escolher uma versão diferente.
+│   ├── Licença copyleft?  Escolher uma alternativa permissiva.
 │
-├── Is it a Hadolint / Trivy config failure?
-│   └── Fix the Dockerfile or workflow. These rules are easy to satisfy.
+├── É uma falha do Hadolint / Trivy config?
+│   └── Corrigir o Dockerfile ou workflow. Estas regras são fáceis de satisfazer.
 │
-└── Is the workflow itself broken (config error, action version mismatch)?
-    └── See troubleshooting (§12).
+└── O próprio workflow está partido (erro de config, mismatch de versão de action)?
+    └── Ver resolução de problemas (§12).
 ```
 
-## 11. Adding / modifying / suppressing checks
+## 11. Adicionar / modificar / suprimir verificações
 
-### Add a new test project
+### Adicionar um novo projeto de testes
 
 1. `dotnet new xunit -o LawyerApp.Whatever.Tests`
-2. Add the project to `LawyerApp.sln` (`dotnet sln add`).
-3. CI will automatically pick it up — `dotnet test` runs every test
-   project in the solution.
+2. Adicionar o projeto ao `LawyerApp.sln` (`dotnet sln add`).
+3. O CI vai apanhá-lo automaticamente — o `dotnet test` corre cada
+   projeto de testes na solução.
 
-### Add a new scanner
+### Adicionar um novo analisador
 
-1. Create a new workflow file in `.github/workflows/<scanner>.yml`.
-2. Reuse the existing skeleton:
-   - `permissions: contents: read` (plus `security-events: write` if
-     uploading SARIF).
-   - `timeout-minutes:` on every job.
-   - Pin the action version.
-   - Add `workflow_dispatch:` for manual re-runs.
-3. Add an entry to the trigger matrix ([§3](#3-trigger-matrix)).
-4. Add a walkthrough section ([§5](#5-workflow-walkthroughs)).
-5. Add the corresponding badge to the [README](../../../README.md).
-6. After the first successful run, the new check appears in the branch-
-   protection picker. Add it as required.
+1. Criar um novo ficheiro de workflow em `.github/workflows/<scanner>.yml`.
+2. Reutilizar o esqueleto existente:
+   - `permissions: contents: read` (mais `security-events: write` se for
+     carregar SARIF).
+   - `timeout-minutes:` em cada job.
+   - Fixar a versão da action.
+   - Adicionar `workflow_dispatch:` para reexecuções manuais.
+3. Adicionar uma entrada à matriz de disparos ([§3](#3-matriz-de-disparos)).
+4. Adicionar uma secção de análise ([§5](#5-análise-dos-workflows)).
+5. Adicionar o badge correspondente ao [README](../../../README.md).
+6. Após a primeira execução bem-sucedida, a nova verificação aparece no
+   picker de branch protection. Marcar como obrigatória.
 
-### Suppress a CVE
+### Suprimir um CVE
 
 `LawyerApp/.trivyignore`:
 ```
-CVE-YYYY-NNNNN    # Reviewed <date>: <package> — <one-line reason>
+CVE-YYYY-NNNNN    # Revisto <data>: <pacote> — <motivo de uma linha>
 ```
 
-Re-audit quarterly. Remove entries when the underlying fix is available.
+Reauditar trimestralmente. Remover entradas quando a correção subjacente
+estiver disponível.
 
-### Suppress a Gitleaks false positive
+### Suprimir um falso positivo do Gitleaks
 
 `.gitleaks.toml`:
 ```toml
 [allowlist]
 regexes = [
-    '''<your-pattern>''',     # <comment with reason>
+    '''<o-teu-padrão>''',     # <comentário com motivo>
 ]
 paths = [
-    '''(^|/)path/to/file/''',
+    '''(^|/)caminho/para/ficheiro/''',
 ]
 ```
 
-### Suppress a CodeQL / Semgrep finding
+### Suprimir uma ocorrência do CodeQL / Semgrep
 
-Two options, pick one:
-- **Dismiss in Security tab** with a written reason. Persists across runs
-  via the fingerprint, but only stored in GitHub (not in git history).
-- **Inline comment** at the source location:
-  - CodeQL: `// codeql[<rule-id>]` on the line above.
-  - Semgrep: `// nosemgrep: <rule-id>  # reason` on the same line.
+Duas opções, escolher uma:
+- **Descartar no Security tab** com motivo escrito. Persiste entre
+  execuções via fingerprint, mas só guardado no GitHub (não no histórico
+  git).
+- **Comentário inline** na localização da fonte:
+  - CodeQL: `// codeql[<rule-id>]` na linha acima.
+  - Semgrep: `// nosemgrep: <rule-id>  # motivo` na mesma linha.
 
-Inline is preferred when the finding is permanent and team-known; Security
-tab dismissal is fine for one-off triage decisions.
+Inline é preferível quando a ocorrência é permanente e conhecida pela
+equipa; o descarte no Security tab serve para decisões pontuais de
+triagem.
 
-### Modify a severity threshold
+### Modificar um limiar de severidade
 
-- Trivy: change `severity: "CRITICAL,HIGH"` to add or remove levels.
-- Dependency Review: change `fail-on-severity: high` to `critical` (more
-  lenient) or `moderate` (stricter).
-- Grype: change `severity-cutoff: high`.
+- Trivy: alterar `severity: "CRITICAL,HIGH"` para adicionar ou remover
+  níveis.
+- Dependency Review: alterar `fail-on-severity: high` para `critical`
+  (mais permissivo) ou `moderate` (mais estrito).
+- Grype: alterar `severity-cutoff: high`.
 
-Document every change in the PR description so reviewers know.
+Documentar cada alteração na descrição do PR para que os revisores
+saibam.
 
-## 12. Troubleshooting
+## 12. Resolução de problemas
 
-Common errors we've actually hit, with the fix:
+Erros comuns que enfrentámos efetivamente, com a correção:
 
 ### `Unable to resolve action aquasecurity/trivy-action@X.Y.Z`
-The tag doesn't exist. Real tags are `v0.X.Y` or `0.X.Y` depending on the
-release. Check <https://github.com/aquasecurity/trivy-action/releases>.
-We pin `0.35.0`.
+A tag não existe. Tags reais são `v0.X.Y` ou `0.X.Y` conforme o release.
+Ver <https://github.com/aquasecurity/trivy-action/releases>. Fixámos
+`0.35.0`.
 
 ### `[mei-desofs] is an organization. License key is required.` (Gitleaks)
-`gitleaks/gitleaks-action@v2` requires a paid licence for org-owned repos
-since the Aug-2023 relicensing. Fix: use the gitleaks binary directly
-(`secrets-scan.yml` does this — install via curl, run with `--config
-.gitleaks.toml`).
+O `gitleaks/gitleaks-action@v2` exige licença paga para repositórios de
+organizações desde o relicenciamento de agosto de 2023. Correção: usar o
+binário gitleaks diretamente (o `secrets-scan.yml` faz isto — instala via
+curl, corre com `--config .gitleaks.toml`).
 
 ### `Dependency review is not supported on this repository`
-Enable **Dependency graph** in *Settings → Code security → Dependency
+Ativar **Dependency graph** em *Settings → Code security → Dependency
 graph*.
 
-### Trivy image scan exits 1 despite empty CRITICAL/HIGH findings
-The `aquasecurity/trivy-action` overrides the severity filter to
-all-severities when `format: sarif`, so the same run that produces the
-comprehensive SARIF also fails on MEDIUM/LOW findings. Fix: set
-`limit-severities-for-sarif: true`. The full MEDIUM/LOW report is
-preserved in the separate `Trivy — full report (JSON)` step.
+### Análise Trivy à imagem sai com 1 apesar de não haver ocorrências CRITICAL/HIGH
+O `aquasecurity/trivy-action` substitui o filtro de severidade por
+todas-as-severidades quando `format: sarif`, pelo que a mesma execução
+que produz o SARIF abrangente também falha em ocorrências MEDIUM/LOW.
+Correção: pôr `limit-severities-for-sarif: true`. O relatório completo
+MEDIUM/LOW é preservado no passo separado `Trivy — full report (JSON)`.
 
 ### `Invalid SARIF. JSON syntax error: Unexpected end of JSON input` (Grype)
-`anchore/scan-action@v4` emits an empty SARIF when there are no findings
-above the severity cutoff. Fix: guard the upload step with `if: always()
-&& steps.sarif_check.outputs.found == 'true'` where `sarif_check` is a
-`run:` block that tests `[ -s "$path" ]`.
+O `anchore/scan-action@v4` emite um SARIF vazio quando não há
+ocorrências acima do cutoff de severidade. Correção: proteger o passo de
+upload com `if: always() && steps.sarif_check.outputs.found == 'true'`,
+onde `sarif_check` é um bloco `run:` que testa `[ -s "$path" ]`.
 
-### Hadolint passes locally but Trivy IaC scan fails on the Dockerfile
-The `aquasecurity/trivy-action@0.35.0` for `scan-type: config` doesn't
-respect the `severity` filter — it fails on any finding, even LOW. Fix:
-satisfy the rule (e.g. `HEALTHCHECK NONE` for DS-0026). If the rule isn't
-fixable, add the rule ID to `.trivyignore`.
+### O Hadolint passa localmente mas a análise Trivy IaC falha no Dockerfile
+O `aquasecurity/trivy-action@0.35.0` para `scan-type: config` não
+respeita o filtro `severity` — falha em qualquer ocorrência, mesmo LOW.
+Correção: satisfazer a regra (por exemplo, `HEALTHCHECK NONE` para
+DS-0026). Se a regra não puder ser corrigida, adicionar o ID da regra a
+`.trivyignore`.
 
-### `git push` 403 (wrong GitHub account)
-`gh auth setup-git` added a `gh`-backed credential helper specifically for
-`https://github.com` that bypasses the Git Credential Manager picker. Fix:
+### TruffleHog falha em push para main com "BASE and HEAD commits are the same"
+Quando se faz push para a default branch, o input `base` e o `head` da
+action são o mesmo commit, pelo que a action recusa correr. Correção
+inicial: dividir o job em dois passos com `if:`. Correção definitiva
+(aplicada): substituir a action pelo binário diretamente (ver erro
+seguinte).
+
+### TruffleHog: `docker: Head https://ghcr.io/v2/.../manifests/latest: context deadline exceeded`
+A action `trufflesecurity/trufflehog@main` faz pull de uma imagem
+Docker em `ghcr.io` que intermitentemente expira nos runners
+GitHub-hosted (timeout de cliente). Correção: deixar de usar a action,
+instalar e correr o binário diretamente:
+
+```yaml
+- name: Install trufflehog
+  env:
+    TRUFFLEHOG_VERSION: 3.95.3
+  run: |
+    curl -sSfL -o trufflehog.tar.gz \
+      "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz"
+    tar -xzf trufflehog.tar.gz trufflehog
+    sudo mv trufflehog /usr/local/bin/
+
+- name: TruffleHog (full history)
+  run: trufflehog git "file://${PWD}" --results=verified --fail --no-update
+```
+
+### TruffleHog falha em push para main com `unverified_secrets: N`
+Mudámos da action para o binário; o binário, sem `--since-commit`,
+analisa o histórico completo. Findings antigos em ficheiros de
+documentação (por exemplo, `Password=postgres` num exemplo) são
+classificados como "unknown" pelo detector SQLServer. Correção:
+filtrar para `--results=verified` apenas — credenciais que o TruffleHog
+consegue confirmar contra a API do emissor (sem falsos positivos por
+definição). O Gitleaks corre em paralelo com o ruleset por defeito e
+cobre o caso "unknown".
+
+### `git push` 403 (conta GitHub errada)
+O `gh auth setup-git` adicionou um credential helper específico para
+`https://github.com` baseado em `gh` que faz bypass ao picker do Git
+Credential Manager. Correção:
 ```bash
 git config --global --unset-all credential.https://github.com.helper
 ```
 
-### `dotnet format --verify-no-changes` fails
-Run `dotnet format LawyerApp/LawyerApp.sln` locally to apply the fixes,
-commit, push.
+### `dotnet format --verify-no-changes` falha
+Correr `dotnet format LawyerApp/LawyerApp.sln` localmente para aplicar
+as correções, commit, push.
 
-## 13. Required GitHub settings (outside source code)
+## 13. Definições de GitHub necessárias (fora do código)
 
-These can't be automated from the repo — they're per-repo settings.
+Estas não podem ser automatizadas a partir do repositório — são
+definições por repositório.
 
 ### Settings → Code security
-1. **Dependabot alerts** — on.
-2. **Dependabot security updates** — on (opens PRs for known CVEs).
-3. **Dependency graph** — on (required for `dependency-review.yml`).
-4. **Code scanning** — on (so SARIF from CodeQL / Semgrep / Trivy / Grype
-   / Hadolint / Gitleaks appears under *Code scanning alerts*).
-5. **Secret scanning** + **Push protection** — on (complements Gitleaks
-   and TruffleHog with GitHub's own scanner; push protection blocks new
-   secrets *before* they're committed).
+1. **Dependabot alerts** — ligado.
+2. **Dependabot security updates** — ligado (abre PRs para CVEs
+   conhecidos).
+3. **Dependency graph** — ligado (obrigatório para `dependency-review.yml`).
+4. **Code scanning** — ligado (para que o SARIF do CodeQL / Semgrep /
+   Trivy / Grype / Hadolint / Gitleaks apareça em *Code scanning alerts*).
+5. **Secret scanning** + **Push protection** — ligados (complementam o
+   Gitleaks e o TruffleHog com o próprio analisador do GitHub; o push
+   protection bloqueia segredos novos *antes* de ficarem commitados).
 
-### Settings → Branches → branch protection for `main`
-1. Require a pull request before merging.
-2. Require status checks to pass (after the first run, these names appear
-   in the picker):
+### Settings → Branches → branch protection para `main`
+1. Exigir um pull request antes de fazer merge.
+2. Exigir que os status checks passem (após a primeira execução, estes
+   nomes aparecem no picker):
    - `Build & Test / Build, Test & Publish`
    - `CodeQL (SAST) / Analyze (csharp)`
    - `Semgrep (SAST) / Semgrep scan`
@@ -946,110 +1030,121 @@ These can't be automated from the repo — they're per-repo settings.
    - `Configuration Validation / yamllint`
    - `Configuration Validation / JSON / appsettings validation`
    - `Configuration Validation / dotnet format (style)`
-3. Require branches to be up to date before merging.
-4. Block direct pushes to `main`.
+3. Exigir que os ramos estejam atualizados antes do merge.
+4. Bloquear push direto para `main`.
 
-### GitHub Advanced Security (only if private repo)
-CodeQL, secret scanning, and dependency review are free on **public**
-repos. If the repo is private, an org owner must enable GitHub Advanced
-Security for the team — otherwise those three workflows will warn but not
-fail.
+### GitHub Advanced Security (apenas se o repositório for privado)
+O CodeQL, secret scanning e dependency review são gratuitos em
+repositórios **públicos**. Se o repositório for privado, um proprietário
+da org tem de ativar o GitHub Advanced Security para a equipa — caso
+contrário, esses três workflows avisam mas não falham.
 
-## 14. SonarCloud (optional setup)
+## 14. SonarCloud (configuração opcional)
 
-SonarCloud gives per-PR quality gates with code-smell, security-hotspot,
-duplication, and coverage overlays — nice to have, not required by the
-rubric.
+O SonarCloud dá quality gates por PR com overlays de code-smell,
+security-hotspot, duplicação e cobertura — bom de ter, não obrigatório
+pelo rubric.
 
-1. Sign in to <https://sonarcloud.io> with the team's GitHub account.
-2. *+ → Analyze new project*, pick this repo, choose the **Free plan for
-   public projects**.
-3. Note the **organisation key** and **project key**.
-4. In SonarCloud *My Account → Security* generate a token.
-5. In GitHub *Settings → Secrets and variables → Actions* create secret
-   `SONAR_TOKEN`.
-6. Edit `.github/workflows/sonarcloud.yml`:
-   - Replace `<org>` and `<project-key>` placeholders.
-   - Uncomment the `pull_request:` and `push:` triggers.
+1. Iniciar sessão em <https://sonarcloud.io> com a conta GitHub da
+   equipa.
+2. *+ → Analyze new project*, escolher este repositório, escolher o
+   **plano gratuito para projetos públicos**.
+3. Anotar a **organisation key** e a **project key**.
+4. Em SonarCloud *My Account → Security* gerar um token.
+5. Em GitHub *Settings → Secrets and variables → Actions* criar o
+   secret `SONAR_TOKEN`.
+6. Editar `.github/workflows/sonarcloud.yml`:
+   - Substituir os placeholders `<org>` e `<project-key>`.
+   - Descomentar os disparos `pull_request:` e `push:`.
 
-## 15. Mapping to the Sprint 2 rubric
+## 15. Mapeamento para o rubric do Sprint 2
 
-| Rubric criterion | Evidence in this repo |
+| Critério do rubric | Evidência neste repositório |
 |---|---|
-| **Inventory of components** | SBOMs in [`sbom.yml`](../../../.github/workflows/sbom.yml) (CycloneDX for solution, SPDX for image). |
-| **Execution of test plans** | [`build-test.yml`](../../../.github/workflows/build-test.yml) runs xUnit unit + integration tests on every PR; plan documented in [Test_Plan.md](Test_Plan.md). |
-| **Static analysis (SAST)** | [`codeql.yml`](../../../.github/workflows/codeql.yml), [`semgrep.yml`](../../../.github/workflows/semgrep.yml), `sast` job in [`security-scan.yml`](../../../.github/workflows/security-scan.yml). Optional: [`sonarcloud.yml`](../../../.github/workflows/sonarcloud.yml). |
-| **Software composition analysis (SCA)** | [`dependency-review.yml`](../../../.github/workflows/dependency-review.yml), `sca` job in [`security-scan.yml`](../../../.github/workflows/security-scan.yml), [`dependabot.yml`](../../../.github/dependabot.yml). |
-| **Artifact scanning** | `container-scan` job in [`security-scan.yml`](../../../.github/workflows/security-scan.yml), [`trivy-config.yml`](../../../.github/workflows/trivy-config.yml), Grype in [`sbom.yml`](../../../.github/workflows/sbom.yml). |
-| **Configuration validation** | [`config-validation.yml`](../../../.github/workflows/config-validation.yml) (Hadolint + actionlint + yamllint + JSON / secret guard) and [`trivy-config.yml`](../../../.github/workflows/trivy-config.yml) (IaC mode). |
-| **Secret detection** | [`secrets-scan.yml`](../../../.github/workflows/secrets-scan.yml) (Gitleaks + TruffleHog). |
-| **Dynamic analysis (DAST)** | Out of scope for Pipeline Automation in Sprint 2 — owned by the Security Testing track. |
-| **Pipeline automation** | All practices above run on every PR with no manual step required. |
+| **Inventário de componentes** | SBOMs em [`sbom.yml`](../../../.github/workflows/sbom.yml) (CycloneDX para a solução, SPDX para a imagem). |
+| **Execução dos planos de teste** | [`build-test.yml`](../../../.github/workflows/build-test.yml) corre testes xUnit unitários + integração em cada PR; plano documentado em [Test_Plan.md](Test_Plan.md). |
+| **Análise estática (SAST)** | [`codeql.yml`](../../../.github/workflows/codeql.yml), [`semgrep.yml`](../../../.github/workflows/semgrep.yml), job `sast` em [`security-scan.yml`](../../../.github/workflows/security-scan.yml). Opcional: [`sonarcloud.yml`](../../../.github/workflows/sonarcloud.yml). |
+| **Análise de composição de software (SCA)** | [`dependency-review.yml`](../../../.github/workflows/dependency-review.yml), job `sca` em [`security-scan.yml`](../../../.github/workflows/security-scan.yml), [`dependabot.yml`](../../../.github/dependabot.yml). |
+| **Análise de artefactos** | Job `container-scan` em [`security-scan.yml`](../../../.github/workflows/security-scan.yml), [`trivy-config.yml`](../../../.github/workflows/trivy-config.yml), Grype em [`sbom.yml`](../../../.github/workflows/sbom.yml). |
+| **Validação de configuração** | [`config-validation.yml`](../../../.github/workflows/config-validation.yml) (Hadolint + actionlint + yamllint + guard JSON / segredos) e [`trivy-config.yml`](../../../.github/workflows/trivy-config.yml) (modo IaC). |
+| **Deteção de segredos** | [`secrets-scan.yml`](../../../.github/workflows/secrets-scan.yml) (Gitleaks + TruffleHog). |
+| **Análise dinâmica (DAST)** | Fora do âmbito da Automação de Pipeline no Sprint 2 — pertence ao âmbito de Security Testing. |
+| **Automação de pipeline** | Todas as práticas acima correm em cada PR sem qualquer passo manual. |
 
-## 16. Maintenance & lifecycle
+## 16. Manutenção e ciclo de vida
 
-- **Update cadence**: Dependabot raises action / NuGet / Docker base PRs
-  every Monday morning. Merge them via the same gated PR flow.
-- **Adding a new test project**: drop a `*.Tests.csproj` next to the
-  solution and add it to `LawyerApp.sln` — the existing `dotnet test`
-  command runs the whole solution so it'll be picked up automatically.
-- **Tuning failure thresholds**: each scanner exposes a severity knob —
-  `fail-on-severity` (Dependency Review), `severity-cutoff` (Grype), the
-  Trivy `severity:` list, etc. Start strict (CRITICAL/HIGH fail), relax
-  only with a documented exception.
-- **Audit of suppressions**: re-review `.trivyignore` and `.gitleaks.toml`
-  every quarter. Remove entries that are no longer needed (fix landed
-  upstream, secret was rotated).
-- **Action version updates**: Dependabot opens a PR for each major. Read
-  the action's CHANGELOG before merging; some bumps change defaults.
-- **Pipeline runtime**: target keeps the whole PR-gate suite under
-  ~10 minutes wall-clock. If any single workflow grows past 15 min,
-  consider splitting it.
+- **Cadência de atualização**: o Dependabot levanta PRs de
+  action / NuGet / base Docker todas as segundas de manhã. Fazer merge
+  pelo mesmo fluxo com gate de PR.
+- **Adicionar um novo projeto de testes**: largar um `*.Tests.csproj` ao
+  lado da solução e adicioná-lo ao `LawyerApp.sln` — o comando
+  `dotnet test` existente corre a solução inteira, pelo que será
+  apanhado automaticamente.
+- **Afinar limiares de falha**: cada analisador expõe um botão de
+  severidade — `fail-on-severity` (Dependency Review), `severity-cutoff`
+  (Grype), a lista `severity:` do Trivy, etc. Começar estrito
+  (CRITICAL/HIGH falham), relaxar apenas com exceção documentada.
+- **Auditoria de supressões**: rever `.trivyignore` e `.gitleaks.toml`
+  trimestralmente. Remover entradas que já não são necessárias (correção
+  aterrou upstream, segredo foi rodado).
+- **Atualizações de versões de actions**: o Dependabot abre um PR para
+  cada major. Ler o CHANGELOG da action antes do merge; algumas subidas
+  alteram defaults.
+- **Tempo de execução da pipeline**: o objetivo é manter o conjunto de
+  gates do PR abaixo de ~10 minutos wall-clock. Se algum workflow passar
+  os 15 min, considerar dividi-lo.
 
-## 17. Glossary
+## 17. Glossário
 
-- **SAST** — *Static Application Security Testing*. Analyses source code
-  (or built artifacts) without running it. Examples here: CodeQL,
-  Semgrep, .NET analyzers, Security Code Scan, SonarCloud.
-- **DAST** — *Dynamic Application Security Testing*. Tests a running
-  instance of the application (e.g. OWASP ZAP, Burp). Out of scope for
-  this Sprint 2 pipeline; lives in the Security Testing track.
-- **IAST** — *Interactive Application Security Testing*. Hybrid; an
-  agent inside the running app observes runtime data flows. Also out of
-  scope for Sprint 2.
-- **SCA** — *Software Composition Analysis*. Identifies known-vulnerable
-  versions of third-party dependencies. Tools here: GitHub Dependency
-  Review, `dotnet list --vulnerable`, Dependabot.
-- **SBOM** — *Software Bill of Materials*. Machine-readable inventory of
-  every component shipped in a build. Standards: CycloneDX (OWASP),
-  SPDX (Linux Foundation).
-- **SARIF** — *Static Analysis Results Interchange Format*. OASIS-
-  standard JSON schema for security-tool findings. Every scanner in this
-  pipeline emits SARIF so GitHub's Code Scanning UI can render them.
-- **CVE** — *Common Vulnerabilities and Exposures*. The MITRE-maintained
-  catalogue of publicly disclosed vulnerabilities (`CVE-YYYY-NNNNN`).
-- **CWE** — *Common Weakness Enumeration*. Higher-level classification
-  of vulnerability types (e.g. CWE-79 = XSS). Most SAST findings cite a
-  CWE.
-- **Trust boundary** — Where data crosses from one privilege/trust level
-  to another. Threats are often analysed at trust boundaries (STRIDE).
-- **PR-time gate** — A check that runs on every pull request and must
-  pass before merge.
-- **SSDLC** — *Secure Software Development Lifecycle*. Process model
-  this project follows.
-- **OWASP ASVS** — *Application Security Verification Standard*. OWASP's
-  catalogue of testable security requirements. Pipeline maps to V14
-  (Configuration), V10 (Malicious Code), V14.2 (Dependency).
+- **SAST** — *Static Application Security Testing*. Analisa código-fonte
+  (ou artefactos construídos) sem o executar. Exemplos aqui: CodeQL,
+  Semgrep, analisadores .NET, Security Code Scan, SonarCloud.
+- **DAST** — *Dynamic Application Security Testing*. Testa uma
+  instância em execução da aplicação (por exemplo, OWASP ZAP, Burp).
+  Fora do âmbito desta pipeline do Sprint 2; vive no âmbito de Security
+  Testing.
+- **IAST** — *Interactive Application Security Testing*. Híbrido; um
+  agente dentro da aplicação em execução observa fluxos de dados em
+  runtime. Também fora do âmbito do Sprint 2.
+- **SCA** — *Software Composition Analysis*. Identifica versões
+  conhecidas como vulneráveis de dependências de terceiros. Ferramentas
+  aqui: GitHub Dependency Review, `dotnet list --vulnerable`, Dependabot.
+- **SBOM** — *Software Bill of Materials*. Inventário legível por máquina
+  de todos os componentes incluídos numa build. Standards: CycloneDX
+  (OWASP), SPDX (Linux Foundation).
+- **SARIF** — *Static Analysis Results Interchange Format*. Schema JSON
+  standard da OASIS para ocorrências de ferramentas de segurança. Todos
+  os analisadores nesta pipeline emitem SARIF para que a UI Code Scanning
+  do GitHub os possa renderizar.
+- **CVE** — *Common Vulnerabilities and Exposures*. O catálogo mantido
+  pela MITRE de vulnerabilidades publicamente divulgadas
+  (`CVE-AAAA-NNNNN`).
+- **CWE** — *Common Weakness Enumeration*. Classificação de mais alto
+  nível dos tipos de vulnerabilidade (por exemplo, CWE-79 = XSS). A
+  maioria das ocorrências SAST cita um CWE.
+- **Trust boundary** — Onde os dados atravessam de um nível de
+  privilégio/confiança para outro. As ameaças são frequentemente
+  analisadas nos trust boundaries (STRIDE).
+- **PR-time gate** — Uma verificação que corre em cada pull request e
+  tem de passar antes do merge.
+- **SSDLC** — *Secure Software Development Lifecycle*. Modelo de
+  processo que este projeto segue.
+- **OWASP ASVS** — *Application Security Verification Standard*.
+  Catálogo da OWASP de requisitos de segurança testáveis. A pipeline
+  mapeia para V14 (Configuração), V10 (Código Malicioso), V14.2
+  (Dependência).
 - **SSDF** — NIST SP 800-218 *Secure Software Development Framework*.
-  Higher-level practice catalogue. This pipeline automates PW.4 (reuse
-  security guidance), PW.5 (create well-secured software), PW.7 (review
-  software for vulnerabilities), PW.8 (test software), RV.1 (identify
-  vulnerabilities on a continual basis).
-- **STRIDE** — Microsoft threat-modelling taxonomy: Spoofing, Tampering,
-  Repudiation, Information disclosure, Denial of service, Elevation of
-  privilege. Used in Phase 1 threat modelling.
+  Catálogo de práticas de mais alto nível. Esta pipeline automatiza
+  PW.4 (reutilizar orientação de segurança), PW.5 (criar software bem
+  protegido), PW.7 (rever software à procura de vulnerabilidades),
+  PW.8 (testar software), RV.1 (identificar vulnerabilidades de forma
+  contínua).
+- **STRIDE** — Taxonomia de modelação de ameaças da Microsoft:
+  Spoofing, Tampering, Repudiation, Information disclosure, Denial of
+  service, Elevation of privilege. Usada na modelação de ameaças da
+  Fase 1.
 
-## 18. References
+## 18. Referências
 
 - OWASP — *Application Security Verification Standard v4*:
   <https://owasp.org/www-project-application-security-verification-standard/>
@@ -1062,8 +1157,8 @@ rubric.
 - GitHub Docs — *About secret scanning*:
   <https://docs.github.com/en/code-security/secret-scanning/about-secret-scanning>
 - CodeQL — <https://codeql.github.com/>
-- Semgrep registry — <https://semgrep.dev/explore>
-- Trivy docs — <https://trivy.dev/docs/>
+- Registo Semgrep — <https://semgrep.dev/explore>
+- Documentação Trivy — <https://trivy.dev/docs/>
 - Anchore (Syft + Grype) — <https://github.com/anchore/syft>, <https://github.com/anchore/grype>
 - Gitleaks — <https://github.com/gitleaks/gitleaks>
 - TruffleHog — <https://github.com/trufflesecurity/trufflehog>

@@ -1,6 +1,6 @@
-# DESOFS 2026 — Group Wed PBS 5-2
+# DESOFS 2026 — Grupo Wed PBS 5-2
 
-**Project:** Lawyer App — Secure back-end for a legal consultancy firm, built following SSDLC principles.
+**Projeto:** Lawyer App — Back-end seguro para uma consultora jurídica, construído segundo os princípios do SSDLC.
 
 [![Build & Test](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/build-test.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/build-test.yml)
 [![CodeQL](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/codeql.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/codeql.yml)
@@ -13,13 +13,13 @@
 
 ---
 
-## Repository Structure
+## Estrutura do Repositório
 
 ```
 .
 ├── Deliverables/
 │   └── Phase 1 Threat Modeling/
-│       └── Phase1_Deliverable.md   # Grading criteria → evidence mapping
+│       └── Phase1_Deliverable.md   # Critérios de avaliação → mapeamento de evidências
 └── Documentation/
     ├── Analysis/
     │   ├── Analysis.md
@@ -42,7 +42,7 @@
     ├── Security Testing/
     │   ├── RF01.xlsx
     │   ├── RF02.xlsx
-    │   ├── RF03.xlsx      
+    │   ├── RF03.xlsx
     │   └── RF04.xlsx
     └── ThreatId/
         └── ThreatId.md
@@ -50,40 +50,41 @@
 
 ---
 
-## Phase 1 — Threat Modeling Deliverables
+## Fase 1 — Entregáveis de Modelação de Ameaças
 
-The full evaluation mapping (criteria → file) is
-in [Phase1_Deliverable.md](Deliverables/Phase%201%20Threat%20Modeling/Phase1_Deliverable.md).
+O mapeamento completo da avaliação (critérios → ficheiro) está
+em [Phase1_Deliverable.md](Deliverables/Phase%201%20Threat%20Modeling/Phase1_Deliverable.md).
 
-| Criteria                | Weight | Document                                                                                                                                                                                                                              |
-|:------------------------|:------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Organization & Language |   5%   | This README                                                                                                                                                                                                                           |
-| Analysis                |  10%   | [Analysis.md](Documentation/Analysis/Analysis.md)                                                                                                                                                                                     |
-| Data Flow               |  15%   | [Dataflow.md](Documentation/Dataflow/Dataflow.md)                                                                                                                                                                                     |
-| Threat Identification   |  20%   | [ThreatId.md](Documentation/ThreatId/ThreatId.md)                                                                                                                                                                                     |
-| Risk Assessment         |  10%   | [Risk_Assessment.md](Documentation/Risk_Assessment/Risk_Assessment.md)                                                                                                                                                                |
-| Mitigations             |  10%   | [Mitigations.md](Documentation/Mitigations/Mitigations.md)                                                                                                                                                                            |
-| Requirements            |  20%   | [FURPS+.md](Documentation/Requirements/FURPS+.md)                                                                                                                                                                                     |
-| Security Testing        |  10%   | [RF01.xlsx](Documentation/Security%20Testing/RF01.xlsx) · [RF02.xlsx](Documentation/Security%20Testing/RF02.xlsx) · [RF03.xlsx](Documentation/Security%20Testing/RF03.xlsx) · [RF04.xlsx](Documentation/Security%20Testing/RF04.xlsx) |
+| Critério                  | Peso  | Documento                                                                                                                                                                                                                              |
+|:--------------------------|:-----:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Organização e Linguagem   |  5%   | Este README                                                                                                                                                                                                                            |
+| Análise                   | 10%   | [Analysis.md](Documentation/Analysis/Analysis.md)                                                                                                                                                                                      |
+| Fluxo de Dados            | 15%   | [Dataflow.md](Documentation/Dataflow/Dataflow.md)                                                                                                                                                                                      |
+| Identificação de Ameaças  | 20%   | [ThreatId.md](Documentation/ThreatId/ThreatId.md)                                                                                                                                                                                      |
+| Avaliação de Risco        | 10%   | [Risk_Assessment.md](Documentation/Risk_Assessment/Risk_Assessment.md)                                                                                                                                                                 |
+| Mitigações                | 10%   | [Mitigations.md](Documentation/Mitigations/Mitigations.md)                                                                                                                                                                             |
+| Requisitos                | 20%   | [FURPS+.md](Documentation/Requirements/FURPS+.md)                                                                                                                                                                                      |
+| Testes de Segurança       | 10%   | [RF01.xlsx](Documentation/Security%20Testing/RF01.xlsx) · [RF02.xlsx](Documentation/Security%20Testing/RF02.xlsx) · [RF03.xlsx](Documentation/Security%20Testing/RF03.xlsx) · [RF04.xlsx](Documentation/Security%20Testing/RF04.xlsx)   |
 
-## Phase 2 - Development and Testing
+## Fase 2 — Desenvolvimento e Testes
 
-### CI/CD Pipeline
+### Pipeline CI/CD
 
-Pipeline design, scanners adopted, mapping to the rubric, and the
-GitHub-side setup checklist are documented in
+O desenho da pipeline, os analisadores adotados, o mapeamento para o
+rubric e a checklist de configuração no GitHub estão documentados em
 [Documentation/Phase 2/Build_Test/Pipeline.md](Documentation/Phase%202/Build_Test/Pipeline.md).
-Workflows live under [`.github/workflows`](.github/workflows) and run on
-every pull request, push to `main` / `develop`, and weekly schedules.
-See also: [Test_Plan.md](Documentation/Phase%202/Build_Test/Test_Plan.md)
-and [Artifact_Scanning.md](Documentation/Phase%202/Build_Test/Artifact_Scanning.md).
+Os workflows estão em [`.github/workflows`](.github/workflows) e correm
+em cada pull request, push para `main` / `develop` e em agendamentos
+semanais.
+Ver também: [Test_Plan.md](Documentation/Phase%202/Build_Test/Test_Plan.md)
+e [Artifact_Scanning.md](Documentation/Phase%202/Build_Test/Artifact_Scanning.md).
 
-### Running the application
+### Executar a aplicação
 
-This guide explains how to set up, run, and interact with the LawyerApp during the development and testing phase.
+Este guia explica como configurar, executar e interagir com o LawyerApp durante a fase de desenvolvimento e testes.
 
-## 1. Configure Secrets to access hashicorp vault
-Run these commands inside `src/LawyerApp.API`:
+## 1. Configurar segredos para aceder ao HashiCorp Vault
+Executar estes comandos dentro de `src/LawyerApp.API`:
 
 ```bash
 dotnet user-secrets init
@@ -98,7 +99,7 @@ The respective secrets are the connections string to the postgreSQL database.
 
 The Jwt:SecretKey is the key used to create a cryptograph signature in the jwt token.
 
-## 2. Run the Application
+## 2. Executar a aplicação
 
 - .NET CLI
 
