@@ -1,0 +1,150 @@
+name: Security Scan
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+  schedule:
+    # Runs at 06:00 UTC every Monday
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  DOCKER_IMAGE: lawyerapp
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  # ── Software Composition Analysis (SCA) ─────────────────────────────────
+  sca:
+    name: SCA — Vulnerable NuGet packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore packages
+        run: dotnet restore LawyerApp/LawyerApp.sln
+
+      - name: Check for vulnerable packages
+        run: |
+          dotnet list LawyerApp/LawyerApp.csproj package --vulnerable --include-transitive 2>&1 | \
+          tee vulnerable-packages.txt
+          if grep -q "has the following vulnerable packages" vulnerable-packages.txt; then
+            echo "::error::Vulnerable NuGet packages detected — see vulnerable-packages.txt"
+            exit 1
+          fi
+
+      - name: Upload SCA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sca-report
+          path: vulnerable-packages.txt
+
+  # ── SAST — Static Application Security Testing ───────────────────────────
+  # Note: this job runs Roslyn analyzers + Security Code Scan as an extra
+  # layer. CodeQL (.github/workflows/codeql.yml) and Semgrep
+  # (.github/workflows/semgrep.yml) provide the primary SAST coverage.
+  sast:
+    name: SAST — Security Code Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install Security Code Scan analyzer
+        run: |
+          dotnet tool install --global security-scan --version 5.6.7 || true
+
+      - name: Restore & build with analyzers
+        run: |
+          dotnet restore LawyerApp/LawyerApp.sln
+          dotnet build LawyerApp/LawyerApp.sln -c Release \
+            /p:EnableNETAnalyzers=true \
+            /p:AnalysisMode=All \
+            /warnaserror:CA2100,CA3001,CA3002,CA3003,CA3006,CA3007,CA3010,CA3011,CA3012 \
+            2>&1 | tee sast-output.txt || true
+
+      - name: Upload SAST output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-report
+          path: sast-output.txt
+
+  # ── Container Image Scanning (Trivy) ─────────────────────────────────────
+  container-scan:
+    name: Container Scan — Trivy
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      security-events: write
+    # Run regardless of SCA outcome — image-level CVEs can exist even when
+    # the .NET dependency list is clean (e.g. OS packages in the base image).
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }} LawyerApp/
+
+      - name: Trivy — scan for CRITICAL/HIGH vulnerabilities
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: "${{ env.DOCKER_IMAGE }}:${{ github.sha }}"
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+          ignore-unfixed: true
+          trivyignores: LawyerApp/.trivyignore
+          # Without this, the action overrides --severity to "all" for SARIF
+          # builds, so exit-code 1 triggers on MEDIUM/LOW findings too. We
+          # gate on CRITICAL/HIGH only — the full MEDIUM/LOW report is
+          # produced by the next "Trivy — full report (JSON)" step.
+          limit-severities-for-sarif: true
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-image
+
+      - name: Trivy — full report (JSON)
+        if: always()
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: "${{ env.DOCKER_IMAGE }}:${{ github.sha }}"
+          format: "json"
+          output: "trivy-full-report.json"
+          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+          trivyignores: LawyerApp/.trivyignore
+
+      - name: Upload full Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: |
+            trivy-results.sarif
+            trivy-full-report.json

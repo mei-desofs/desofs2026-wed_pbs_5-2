@@ -8,3 +8,55 @@
 /dataSources.local.xml
 /.idea/*
 
+# OS files
+.DS_Store
+Thumbs.db
+
+# Visual Studio / Rider
+.vs/
+*.user
+*.suo
+*.userprefs
+*.swp
+
+# .NET build output
+**/bin/
+**/obj/
+*.binlog
+
+# Test / coverage output
+TestResults/
+coverage/
+**/coverage.cobertura.xml
+**/coverage.opencover.xml
+**/*.coverage
+**/*.coveragexml
+
+# Publish output
+publish/
+**/publish/
+
+# Pipeline / scan output
+*.sarif
+sbom/
+*.spdx.json
+*.cyclonedx.json
+vulnerable-packages.txt
+vulnerable.txt
+deprecated.txt
+outdated.txt
+trivy-*.sarif
+trivy-*.json
+semgrep.sarif
+hadolint.sarif
+sast-output.txt
+
+# Secrets / local config
+secrets.json
+appsettings.Local.json
+*.pfx
+*.key
+*.pem
+.env
+.env.*
+!.env.example
