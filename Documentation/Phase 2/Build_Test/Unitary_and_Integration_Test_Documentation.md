@@ -249,11 +249,9 @@ Utiliza `IClassFixture<CustomWebApplicationFactory>` para partilhar uma factory 
 # A partir da raiz do repositório
 dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj
 
-# Com resultado detalhado
 dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj --logger "console;verbosity=normal"
 
-# Com recolha de cobertura de código
 dotnet test LawyerApp.Tests/LawyerApp.Tests.csproj --collect:"XPlat Code Coverage"
 ```
 
-Todos os testes são completamente auto-suficientes, ou seja, não necessitam de serviços externos.
+Todos os testes são completamente auto-suficientes, isto é, não necessitam de serviços externos.
