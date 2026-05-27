@@ -4,6 +4,7 @@
 
 Este documento resume as convenções de codificação C# da Microsoft e como elas se aplicam a esta solução. O foco é manter o código legível, consistente e fácil de manter.
 
+
 ## Convenções Principais
 
 ### Linguagem e estilo
