@@ -21,6 +21,13 @@
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
     <PackageReference Include="VaultSharp" Version="1.17.5.1" />
+    <!-- Direct reference overrides the vulnerable transitive 8.0.0 pulled
+         in via Microsoft.AspNetCore.* / EF Core 8.0.x. Fixes:
+           GHSA-hh2w-p6rv-4g7w (HIGH) — fixed in 8.0.4
+           GHSA-8g4q-xg66-9fp4 (HIGH) — fixed in 8.0.5
+         Re-evaluate whenever Microsoft bumps the runtime to 8.0.x where
+         x ≥ 5, at which point this direct pin can be removed. -->
+    <PackageReference Include="System.Text.Json" Version="8.0.6" />
   </ItemGroup>
 
   <ItemGroup>

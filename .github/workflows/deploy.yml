@@ -106,21 +106,31 @@ jobs:
           push-to-registry: true
 
       - name: Deployment summary
+        # All ${{ ... }} expressions are passed via `env:` to avoid the
+        # semgrep `yaml.github-actions.security.run-shell-injection.run-shell-injection`
+        # rule that flags any `github.*` / `steps.*.outputs.*` interpolation
+        # inside a `run:` block.
+        env:
+          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
         run: |
           {
             echo "## Production deployment complete"
             echo ""
             echo "| Field | Value |"
             echo "|---|---|"
-            echo "| Registry | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\` |"
-            echo "| Digest | \`${{ steps.build.outputs.digest }}\` |"
-            echo "| Tags | ${{ steps.meta.outputs.tags }} |"
-            echo "| Triggered by | \`${{ github.event_name }}\` on \`${{ github.ref }}\` |"
+            echo "| Registry | \`${IMAGE_REF}\` |"
+            echo "| Digest | \`${DIGEST}\` |"
+            echo "| Tags | ${TAGS} |"
+            echo "| Triggered by | \`${EVENT}\` on \`${REF}\` |"
             echo ""
             echo "### Pull command (immutable digest)"
-            echo "\`\`\`bash"
-            echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}"
-            echo "\`\`\`"
+            echo '```bash'
+            echo "docker pull ${IMAGE_REF}@${DIGEST}"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
   scan-published:
