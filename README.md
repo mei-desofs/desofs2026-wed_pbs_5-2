@@ -10,6 +10,7 @@
 [![SBOM](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/sbom.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/sbom.yml)
 [![Secrets Scan](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/secrets-scan.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/secrets-scan.yml)
 [![Config Validation](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/config-validation.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/config-validation.yml)
+[![Deploy](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/deploy.yml/badge.svg)](https://github.com/mei-desofs/desofs2026-wed_pbs_5-2/actions/workflows/deploy.yml)
 
 ---
 

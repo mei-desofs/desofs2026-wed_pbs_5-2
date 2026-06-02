@@ -39,13 +39,15 @@
 
 ## 1. Visão executiva
 
-A pipeline é composta por **dez workflows do GitHub Actions** + uma
+A pipeline é composta por **onze workflows do GitHub Actions** + uma
 configuração do Dependabot + três ficheiros de política (`.gitleaks.toml`,
 `.trivyignore`, `.gitignore`). Cada pull request para `main` ou `develop`
-executa **todas** as verificações em paralelo. A possibilidade de fazer
-merge é controlada por regras de status check na proteção de branch.
+executa **todas** as verificações de CI em paralelo. A possibilidade de
+fazer merge é controlada por regras de status check na proteção de
+branch. Após o merge em `main`, o workflow de **deploy** publica a
+imagem em `ghcr.io` (com gate opcional via Environment).
 
-A pipeline responde a oito perguntas do SSDLC em cada PR:
+A pipeline responde a nove perguntas do SSDLC em cada PR + push para `main`:
 
 | Pergunta | Respondida por |
 |---|---|
@@ -57,6 +59,7 @@ A pipeline responde a oito perguntas do SSDLC em cada PR:
 | Foi feito commit de algum segredo? | `secrets-scan.yml` (Gitleaks + TruffleHog) |
 | O nosso Dockerfile / YAML / JSON está bem formado? | `config-validation.yml`, `trivy-config.yml` |
 | Conseguimos produzir um inventário auditável daquilo que entra na build? | `sbom.yml` (CycloneDX + Syft SPDX) |
+| Como é que a build chega a produção? | `deploy.yml` (push para `ghcr.io` + atestação SLSA + scan pós-publicação) |
 
 Tudo reporta SARIF para **Security → Code scanning** para que as
 ocorrências sejam deduplicadas e persistam entre execuções. As falhas são
@@ -132,10 +135,13 @@ sem que um job bloqueie o outro.
 | [`sbom.yml`](../../../.github/workflows/sbom.yml) | sim | sim | sim | sim |
 | [`secrets-scan.yml`](../../../.github/workflows/secrets-scan.yml) | sim | sim | sim | sim |
 | [`config-validation.yml`](../../../.github/workflows/config-validation.yml) | sim | sim |  | sim |
+| [`deploy.yml`](../../../.github/workflows/deploy.yml) |  | sim (`main`) |  | sim |
 
 Os agendamentos semanais expõem advisórias que surgem **após** os
 congelamentos de código — uma análise sem alterações ainda apanha CVEs
-novos em dependências fixadas.
+novos em dependências fixadas. O `deploy.yml` corre apenas em push para
+`main`, em `release: published` ou em dispatch manual — nunca em PRs (o
+gate é o merge para `main`).
 
 ## 4. Práticas adotadas
 
@@ -508,6 +514,104 @@ aspas.
 `dotnet format … --verify-no-changes --severity warn`. `continue-on-error: true`
 para que o desvio de estilo não falhe a build hoje, mas o warning fica
 visível.
+
+---
+
+### 5.11 `deploy.yml` — Continuous Deployment para GHCR
+
+**Caminho:** [`.github/workflows/deploy.yml`](../../../.github/workflows/deploy.yml)
+**Disparos:** push para `main`, `release: published`, dispatch manual.
+**Permissões ao nível do workflow:** `contents: read`. Cada job
+acrescenta o que precisa (`packages: write`, `id-token: write`,
+`attestations: write`, `security-events: write`, `contents: write`).
+
+Este workflow é o único que **escreve** para fora do repositório — toda
+a CI antes dele é read-only. Sobe a imagem Docker do `LawyerApp` para
+**GitHub Container Registry** (`ghcr.io`), assina-a com SLSA build
+provenance via OIDC keyless, faz scan da imagem publicada e (em
+releases) anexa o SBOM ao GitHub Release.
+
+#### Job 1 — `build-and-push` (gated pelo Environment `production`)
+**Timeout:** 25 min.
+**Environment:** `production` — o GitHub Environment com o mesmo nome
+**tem de existir** (ver [§13](#13-definições-de-github-necessárias-fora-do-código)).
+Se forem configurados reviewers, cada execução fica em "Waiting" até
+um membro aprovar.
+
+| # | Passo | O que faz | Porquê |
+|---|---|---|---|
+| 1 | `Checkout` | Padrão. | — |
+| 2 | `Set up Docker Buildx` | `docker/setup-buildx-action@v3`. | Necessário para cache GHA e atestações. |
+| 3 | `Log in to GHCR` | `docker/login-action@v3` com `GITHUB_TOKEN`. | Token de curta duração; o `packages: write` permite push. |
+| 4 | `Extract metadata` | `docker/metadata-action@v5`. | Gera tags consistentes: `:main`, `:sha-<short>`, `:latest` (só na default branch), `:1.2.3` + `:1.2` em tags semver. Adiciona labels OCI standard. |
+| 5 | `Build & push` | `docker/build-push-action@v6` com `push: true`, `provenance: mode=max`, `sbom: true`. | Build da imagem + push para `ghcr.io`. Anexa SBOM e provenance SLSA à imagem como artefactos OCI (visíveis na página do pacote). |
+| 6 | `Attest build provenance` | `actions/attest-build-provenance@v2` com `push-to-registry: true`. | Atestação SLSA-Provenance v1.0 assinada via OIDC keyless (sigstore). Visível no separador *Attestations* da página do pacote. |
+| 7 | `Deployment summary` | Escreve para `$GITHUB_STEP_SUMMARY`. | Resumo amigável no UI do run com registry, digest, tags e comando de pull. |
+
+**Outputs:** `digest` (sha256), `tags` (lista), `image-name`. Os jobs
+seguintes referenciam estes para apontar para o **mesmo** digest (não
+para `:latest`, que poderia ser atualizado entre passos).
+
+#### Job 2 — `scan-published` (Trivy pós-deploy)
+**Timeout:** 15 min.
+**Depende de:** `build-and-push`.
+
+| # | Passo | O que faz | Porquê |
+|---|---|---|---|
+| 1 | Checkout. | Para ler `.trivyignore`. | — |
+| 2 | Log in to GHCR (read). | Permite pull da imagem privada. | — |
+| 3 | `Trivy — scan published image at digest` | Mesma configuração de gate que o `security-scan.yml` (`severity: CRITICAL,HIGH`, `ignore-unfixed: true`, `trivyignores: LawyerApp/.trivyignore`, `limit-severities-for-sarif: true`). | Confirma que a imagem **publicada** (não a build local) está limpa. Categoria SARIF `trivy-deploy` separada para distinguir da scan de PR. |
+| 4 | Upload SARIF + artefacto. | — | — |
+
+Se este passo falhar, a imagem **já foi publicada** mas a deployment é
+marcada como falhada e o operador deve fazer rollback manual (remover
+a tag `:latest`, restaurar a anterior). Ver árvore de decisão em
+[§10](#10-resposta-a-uma-verificação-que-falha).
+
+#### Job 3 — `release-assets` (só em `release: published`)
+**Timeout:** 10 min.
+**Depende de:** `build-and-push`.
+**Condição:** `if: github.event_name == 'release'`.
+
+| # | Passo | O que faz | Porquê |
+|---|---|---|---|
+| 1-2 | Checkout + login GHCR (read). | — | — |
+| 3 | `Generate SBOM of the published image (SPDX-JSON)` | `anchore/sbom-action@v0` com `upload-release-assets: true`. | Gera SBOM SPDX-JSON da imagem **exata** que foi publicada (via digest) e anexa-o à página do Release. Auditor descarrega o SBOM da página do release sem precisar de aceder ao GHCR. |
+
+#### Tags emitidas pelo workflow
+
+| Trigger | Tags publicadas |
+|---|---|
+| Push para `main` | `:main`, `:sha-<short>`, `:latest` |
+| `release: published` (tag `v1.2.3`) | `:v1.2.3`, `:1.2.3`, `:1.2`, `:sha-<short>`, `:latest` (se em default branch) |
+| `workflow_dispatch` | depende do ref escolhido — mesma lógica do `docker/metadata-action` |
+
+#### Como puxar e correr a imagem
+
+```bash
+# Pull pela tag rolling
+docker pull ghcr.io/mei-desofs/desofs2026-wed_pbs_5-2:latest
+
+# Pull imutável pelo digest (recomendado para reprodutibilidade)
+docker pull ghcr.io/mei-desofs/desofs2026-wed_pbs_5-2@sha256:<digest>
+
+# Correr (precisa de connection string PostgreSQL via env)
+docker run --rm -p 8080:8080 \
+  -e "ConnectionString__PostgreSQL=Host=<host>;Port=5432;Database=lawyerapp;Username=<user>;Password=<password>;SSL Mode=Require" \
+  ghcr.io/mei-desofs/desofs2026-wed_pbs_5-2:latest
+```
+
+#### Verificar a atestação de provenance
+
+```bash
+# Precisa do GitHub CLI (gh)
+gh attestation verify \
+  oci://ghcr.io/mei-desofs/desofs2026-wed_pbs_5-2@sha256:<digest> \
+  --repo mei-desofs/desofs2026-wed_pbs_5-2
+```
+
+Sai com 0 se a provenance for válida (build veio do repo certo,
+workflow certo, commit certo).
 
 ## 6. Ficheiros de configuração
 
@@ -1039,6 +1143,34 @@ repositórios **públicos**. Se o repositório for privado, um proprietário
 da org tem de ativar o GitHub Advanced Security para a equipa — caso
 contrário, esses três workflows avisam mas não falham.
 
+### Settings → Environments — criar `production`
+O `deploy.yml` referencia o Environment `production`. Tem de existir
+**antes** do primeiro push para `main` que dispare o deploy, senão o
+job falha com "environment not found".
+
+1. *Settings → Environments → New environment* → nome: **`production`**.
+2. (Opcional, mas recomendado) **Required reviewers**: 1+ membros da
+   equipa. Cada deploy fica em "Waiting" até alguém aprovar via UI.
+3. (Opcional) **Deployment branches and tags**: limitar a `main` para
+   que `workflow_dispatch` noutro ramo não consiga deployar.
+4. (Opcional) Adicionar **Environment secrets / variables** específicos
+   se mais tarde precisarem (por exemplo, `AIVEN_API_TOKEN` para
+   deploys reais).
+
+### Settings → Packages — visibilidade do contentor
+A primeira execução do `deploy.yml` cria o pacote
+`ghcr.io/mei-desofs/desofs2026-wed_pbs_5-2`. Por defeito é **privado**
+mesmo num repo público.
+
+1. Após o primeiro deploy bem-sucedido: ir a
+   <https://github.com/orgs/mei-desofs/packages?repo_name=desofs2026-wed_pbs_5-2>
+   → clicar no pacote → *Package settings*.
+2. **Change visibility** → **Public** (para que avaliadores possam
+   fazer pull sem credenciais).
+3. **Manage Actions access** → garantir que o repositório
+   `desofs2026-wed_pbs_5-2` tem acesso `Write`. Isto é automático
+   quando o pacote é criado pelo workflow, mas vale a pena confirmar.
+
 ## 14. SonarCloud (configuração opcional)
 
 O SonarCloud dá quality gates por PR com overlays de code-smell,
@@ -1070,6 +1202,7 @@ pelo rubric.
 | **Deteção de segredos** | [`secrets-scan.yml`](../../../.github/workflows/secrets-scan.yml) (Gitleaks + TruffleHog). |
 | **Análise dinâmica (DAST)** | Fora do âmbito da Automação de Pipeline no Sprint 2 — pertence ao âmbito de Security Testing. |
 | **Automação de pipeline** | Todas as práticas acima correm em cada PR sem qualquer passo manual. |
+| **Produção / Continuous Deployment** | [`deploy.yml`](../../../.github/workflows/deploy.yml) publica a imagem em `ghcr.io` em cada push para `main`, anexa atestação SLSA-Provenance v1.0 assinada via OIDC keyless, faz scan pós-publicação com Trivy e (em releases) anexa SBOM SPDX-JSON à página do release. Gate via Environment `production`. |
 
 ## 16. Manutenção e ciclo de vida
 
@@ -1143,6 +1276,25 @@ pelo rubric.
   Spoofing, Tampering, Repudiation, Information disclosure, Denial of
   service, Elevation of privilege. Usada na modelação de ameaças da
   Fase 1.
+- **CD** — *Continuous Deployment*. Cada commit que passa nos gates de
+  CI é publicado automaticamente para um registo / runtime. Neste
+  projeto: cada merge em `main` publica uma imagem nova em `ghcr.io`.
+- **GHCR** — *GitHub Container Registry* (<https://ghcr.io>). Registo
+  OCI gratuito integrado no GitHub. Os pacotes herdam (após
+  configuração) a visibilidade do repositório associado.
+- **OCI image** — *Open Container Initiative image*. Standard de imagem
+  de contentor (Docker, podman, containerd consomem este formato).
+- **SLSA** — *Supply-chain Levels for Software Artifacts*. Framework
+  para garantir integridade da supply chain. A nossa pipeline emite
+  atestações SLSA-Provenance v1.0 via `actions/attest-build-provenance`.
+- **Provenance attestation** — Documento assinado que declara *como* e
+  *de onde* uma imagem foi construída (repo, commit, workflow, runner).
+  Verificável com `gh attestation verify`.
+- **Sigstore / OIDC keyless signing** — Esquema de assinatura sem
+  chaves de longa duração: o GitHub OIDC token autentica o workflow,
+  o Sigstore Fulcio emite um certificado efémero, a assinatura é
+  registada no Rekor (log transparente público). Adotado pela
+  `actions/attest-build-provenance@v2`.
 
 ## 18. Referências
 
@@ -1165,4 +1317,8 @@ pelo rubric.
 - Hadolint — <https://github.com/hadolint/hadolint>
 - actionlint — <https://github.com/rhysd/actionlint>
 - CycloneDX — <https://cyclonedx.org/>
+- SLSA framework — <https://slsa.dev/>
+- GitHub Docs — *Publishing Docker images to GitHub Packages*: <https://docs.github.com/en/actions/use-cases-and-examples/publishing-packages/publishing-docker-images>
+- GitHub Docs — *Using environments for deployment*: <https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment>
+- GitHub Docs — *About artifact attestations*: <https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations/using-artifact-attestations-to-establish-provenance-for-builds>
 - SPDX — <https://spdx.dev/>
