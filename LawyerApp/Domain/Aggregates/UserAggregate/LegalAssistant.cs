@@ -6,6 +6,7 @@ public class LegalAssistant : User
 {
     public string EmployeeId { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
+    public Guid? AssignedLawyerId { get; set; }
 
     // EF Core
     private LegalAssistant() : base() { }

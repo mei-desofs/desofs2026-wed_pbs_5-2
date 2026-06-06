@@ -15,6 +15,7 @@ namespace LawyerApp.Infrastructure.Persistence
         public DbSet<User> Users { get; set; }
         public DbSet<LegalProcess> LegalProcesses { get; set; }
         public DbSet<Document> Documents { get; set; }
+        public DbSet<LawyerApp.Domain.Aggregates.AuditAggregate.AuditLog> AuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -38,6 +39,12 @@ namespace LawyerApp.Infrastructure.Persistence
             modelBuilder.Entity<Document>(entity =>
             {
                 entity.HasKey(e => e.DocumentId);
+            });
+
+            // AuditLog Configuration
+            modelBuilder.Entity<LawyerApp.Domain.Aggregates.AuditAggregate.AuditLog>(entity =>
+            {
+                entity.HasKey(e => e.Id);
             });
         }
     }
