@@ -1,5 +1,7 @@
 ﻿using LawyerApp.Application.Interfaces.Security;
 using LawyerApp.Domain.Aggregates.UserAggregate.Interfaces;
+using LawyerApp.Domain.Aggregates.LegalProcessAggregate.Interfaces;
+using LawyerApp.Domain.Aggregates.DocumentAggregate.Interfaces;
 using LawyerApp.Infrastructure.Persistence;
 using LawyerApp.Infrastructure.Persistence.Repositories;
 using LawyerApp.Infrastructure.Security;
@@ -33,10 +35,15 @@ namespace LawyerApp.Infrastructure.DI
                 options.UseNpgsql(connectionString));
 
 
-            builder.Services.AddScoped<IUserRepository, UserRepository>();
-            builder.Services.AddScoped<ILegalProcessRepository, LegalProcessRepository>();
-            builder.Services.AddScoped<IDocumentRepository, DocumentRepository>();
-            builder.Services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<ILegalProcessRepository, LegalProcessRepository>();
+            services.AddScoped<IDocumentRepository, DocumentRepository>();
+            services.AddScoped<LawyerApp.Domain.Aggregates.AuditAggregate.Interfaces.IAuditRepository, AuditRepository>();
+
+            services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
+            services.AddScoped<IFileEncryptionService, FileEncryptionService>();
+
+            return;
         }
     }
 }

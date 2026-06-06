@@ -57,6 +57,8 @@ builder.Services.RegisterApplicationDependecies();
 
 var app = builder.Build();
 
+app.UseMiddleware<LawyerApp.API.Middleware.ExceptionHandlingMiddleware>();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

@@ -1,4 +1,5 @@
 ﻿using LawyerApp.Domain.Aggregates.DocumentAggregate;
+using LawyerApp.Domain.Aggregates.DocumentAggregate.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Threading;
 
