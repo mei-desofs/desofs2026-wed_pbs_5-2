@@ -2,6 +2,7 @@ using FluentAssertions;
 using LawyerApp.Application.Services.UserAggregate;
 using LawyerApp.Domain.Aggregates.UserAggregate;
 using LawyerApp.Domain.Aggregates.UserAggregate.Dto;
+using LawyerApp.Domain.Aggregates.UserAggregate.Interfaces;
 using LawyerApp.Domain.Interfaces.Security;
 using Moq;
 using Xunit;

@@ -10,19 +10,20 @@ namespace LawyerApp.Domain.Aggregates.UserAggregate.Interfaces
     public interface IUserRepository
     {
         // GET
-        Task<User?> GetByIdAsync(Guid id, CancellationToken cancellation);
-        Task<IEnumerable<Client>> GetAllClientsAsync(CancellationToken cancellation);
-        Task<User?> GetByEmailAsync(string email, CancellationToken cancellation);
-        Task<bool> EmailExistsAsync(string email, CancellationToken cancellation);
+        Task<User?> GetByIdAsync(Guid id, CancellationToken cancellation = default);
+        Task<IEnumerable<User>> GetAllUsersAsync(CancellationToken cancellation = default);
+        Task<IEnumerable<Client>> GetAllClientsAsync(CancellationToken cancellation = default);
+        Task<User?> GetByEmailAsync(string email, CancellationToken cancellation = default);
+        Task<bool> EmailExistsAsync(string email, CancellationToken cancellation = default);
 
         // ADD
-        Task<User> AddAsync(User user, CancellationToken cancellation);
-        Task<User> AddClientAsync(CreateClientDto user, CancellationToken cancellation);
+        Task<User> AddAsync(User user, CancellationToken cancellation = default);
+        Task<User> AddClientAsync(CreateClientDto user, CancellationToken cancellation = default);
 
         // UPDATE
-        Task UpdateAsync(User user, CancellationToken cancellation);
+        Task UpdateAsync(User user, CancellationToken cancellation = default);
 
         // DELETE
-        Task DeleteAsync(Guid id, CancellationToken cancellation);
+        Task DeleteAsync(Guid id, CancellationToken cancellation = default);
     }
 }

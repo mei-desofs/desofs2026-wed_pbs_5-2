@@ -5,7 +5,7 @@ namespace LawyerApp.Application.Interfaces.User
 {
     public interface IClient
     {
-        Task<Result<List<ClientDto>>> GetAllClientsAsync(CancellationToken cancellation);
-        Task<Result<ClientDto>> CreateClientAsync(CreateClientDto client, CancellationToken cancellationToken);
+        Task<Result<List<ClientDto>>> GetAllClientsAsync(CancellationToken cancellation = default);
+        Task<Result<ClientDto>> CreateClientAsync(CreateClientDto client, CancellationToken cancellationToken = default);
     }
 }

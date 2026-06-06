@@ -33,7 +33,8 @@ namespace LawyerApp.API.Login
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDTO loginDto,CancellationToken cancellationToken)
         {
-            var result = await _loginService.Login(loginDto.Email, loginDto.Password, cancellationToken);
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var result = await _loginService.Login(loginDto.Email, loginDto.Password, ip, cancellationToken);
             return HandleResult(result);
         }
     }
