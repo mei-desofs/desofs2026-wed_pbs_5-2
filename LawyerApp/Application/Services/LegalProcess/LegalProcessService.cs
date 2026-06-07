@@ -24,7 +24,7 @@ public class LegalProcessService : ILegalProcessService
         _processRepository = processRepository;
         _userRepository = userRepository;
         _auditRepository = auditRepository;
-        _baseStoragePath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "LawyerAppData", "processos"));
+        _baseStoragePath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "LawyerAppData", "Processes"));
     }
 
     public async Task<Result<LegalProcessDto>> CreateProcessAsync(CreateLegalProcessDto dto, Guid currentUserId, string currentUserRole, string ipAddress, CancellationToken cancellationToken = default)
@@ -50,11 +50,9 @@ public class LegalProcessService : ILegalProcessService
                  throw new UnauthorizedAccessException("Potential path traversal detected.");
             }
 
-            Directory.CreateDirectory(Path.Combine(fullPath, "documentos", "peticoes"));
-            Directory.CreateDirectory(Path.Combine(fullPath, "documentos", "contratos"));
-            Directory.CreateDirectory(Path.Combine(fullPath, "documentos", "outros"));
-            Directory.CreateDirectory(Path.Combine(fullPath, "correspondencia"));
-            Directory.CreateDirectory(Path.Combine(fullPath, "temp"));
+            Directory.CreateDirectory(Path.Combine(fullPath, "Documents", "Petitions"));
+            Directory.CreateDirectory(Path.Combine(fullPath, "Documents", "Contracts"));
+            Directory.CreateDirectory(Path.Combine(fullPath, "Documents", "Others"));
 
             await _processRepository.AddAsync(process, cancellationToken);
 

@@ -42,6 +42,7 @@ public class LegalProcessController : ApiController
     }
 
     [HttpGet]
+    [Authorize(Roles = "Lawyer")]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

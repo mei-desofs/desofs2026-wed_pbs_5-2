@@ -29,7 +29,7 @@ public class DocumentService : IDocumentService
         _processRepository = processRepository;
         _auditRepository = auditRepository;
         _encryptionService = encryptionService;
-        _baseStoragePath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "LawyerAppData", "processos"));
+        _baseStoragePath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "LawyerAppData", "Processes"));
     }
 
     public async Task<Result<DocumentDto>> UploadDocumentAsync(Guid processId, IFormFile file, string category, Guid currentUserId, string currentUserRole, string ipAddress, CancellationToken cancellationToken = default)
@@ -66,9 +66,9 @@ public class DocumentService : IDocumentService
             // RF03: Determine subfolder
             string subFolder = category.ToLower() switch
             {
-                "petition" => Path.Combine("documentos", "peticoes"),
-                "contract" => Path.Combine("documentos", "contratos"),
-                _ => Path.Combine("documentos", "outros")
+                "petition" => Path.Combine("Documents", "Petitions"),
+                "contract" => Path.Combine("Documents", "Contracts"),
+                _ => Path.Combine("Documents", "Others")
             };
 
             var processPath = Path.GetFullPath(Path.Combine(_baseStoragePath, processId.ToString(), subFolder));

@@ -14,17 +14,33 @@ namespace LawyerApp.Infrastructure.Security
             var keyStr = configuration["FileEncryption:Key"];
             var ivStr = configuration["FileEncryption:IV"];
 
-            if (string.IsNullOrEmpty(keyStr) || string.IsNullOrEmpty(ivStr))
+            if (!string.IsNullOrEmpty(keyStr) && !string.IsNullOrEmpty(ivStr))
             {
-                // Fallback for demo
-                _key = System.Text.Encoding.UTF8.GetBytes("a-very-secret-key-32-chars-long!!");
-                _iv = System.Text.Encoding.UTF8.GetBytes("a-secret-iv-16-!");
+                try
+                {
+                    _key = Convert.FromBase64String(keyStr);
+                    _iv = Convert.FromBase64String(ivStr);
+
+                    // Validate AES key sizes (128, 192, or 256 bits -> 16, 24, or 32 bytes)
+                    if (_key.Length != 16 && _key.Length != 24 && _key.Length != 32)
+                    {
+                        throw new CryptographicException($"Invalid Key size: {_key.Length} bytes.");
+                    }
+                    if (_iv.Length != 16)
+                    {
+                        throw new CryptographicException($"Invalid IV size: {_iv.Length} bytes.");
+                    }
+                    return; // Successfully loaded from config
+                }
+                catch
+                {
+                    // If config is invalid, we fall back to the demo key below
+                }
             }
-            else
-            {
-                _key = Convert.FromBase64String(keyStr);
-                _iv = Convert.FromBase64String(ivStr);
-            }
+
+            // Fallback for demo - MUST be exactly 32 bytes for AES-256
+            _key = System.Text.Encoding.UTF8.GetBytes("a-very-secret-key-32-chars-long!");
+            _iv = System.Text.Encoding.UTF8.GetBytes("a-secret-iv-16-!");
         }
 
         public async Task EncryptStreamAsync(Stream source, Stream destination, CancellationToken cancellationToken)

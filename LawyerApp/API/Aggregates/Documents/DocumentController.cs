@@ -18,7 +18,7 @@ public class DocumentController : ApiController
     }
 
     [HttpPost("upload/{processId}")]
-    [Authorize(Roles = "Lawyer,LegalAssistant")]
+    [Authorize(Roles = "Lawyer")]
     public async Task<IActionResult> Upload(Guid processId, IFormFile file, [FromQuery] string category, CancellationToken cancellationToken)
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
