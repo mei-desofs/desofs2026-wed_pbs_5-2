@@ -1,4 +1,5 @@
 using FluentAssertions;
+using LawyerApp.Application.DTOS.Users;
 using LawyerApp.Domain.Aggregates.UserAggregate;
 using LawyerApp.Infrastructure.Persistence.Repositories;
 using LawyerApp.Tests.Helpers;
@@ -28,9 +29,9 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task AddClientAsync_PersistsClientToDatabase()
     {
-        var client = new Client("Alice", "alice@repo.com", "hash", "Rua A", "910001001");
+        var client = new CreateClientDto("Alice", "alice@repo.com", "hash", "Rua A", "910001001");
 
-        await _sut.AddClientAsync(client);
+        await _sut.AddClientAsync(client, CancellationToken.None);
 
         _context.Users.Should().ContainSingle(u => u.Email == "alice@repo.com");
     }
@@ -38,9 +39,9 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task AddClientAsync_ReturnsPersistedClient()
     {
-        var client = new Client("Bob", "bob@repo.com", "hash", "Rua B", "910001002");
+        var client = new CreateClientDto("Bob", "bob@repo.com", "hash", "Rua B", "910001002");
 
-        var result = await _sut.AddClientAsync(client);
+        var result = await _sut.AddClientAsync(client, CancellationToken.None);
 
         result.Should().NotBeNull();
         result.Name.Should().Be("Bob");
@@ -57,7 +58,7 @@ public class UserRepositoryTests : IDisposable
         _context.Users.AddRange(client, lawyer);
         await _context.SaveChangesAsync();
 
-        var result = await _sut.GetAllClientsAsync();
+        var result = await _sut.GetAllClientsAsync(CancellationToken.None);
 
         result.Should().ContainSingle(c => c.Email == "carol@repo.com");
         result.Should().NotContain(u => u.Email == "dave@repo.com");
@@ -68,10 +69,10 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task EmailExistsAsync_WhenEmailExists_ReturnsTrue()
     {
-        var client = new Client("Eve", "eve@repo.com", "hash", "Rua E", "910001004");
-        await _sut.AddClientAsync(client);
+        var client = new CreateClientDto("Eve", "eve@repo.com", "hash", "Rua E", "910001004");
+        await _sut.AddClientAsync(client, CancellationToken.None);
 
-        var exists = await _sut.EmailExistsAsync("eve@repo.com");
+        var exists = await _sut.EmailExistsAsync("eve@repo.com", CancellationToken.None);
 
         exists.Should().BeTrue();
     }
@@ -79,7 +80,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task EmailExistsAsync_WhenEmailDoesNotExist_ReturnsFalse()
     {
-        var exists = await _sut.EmailExistsAsync("nobody@repo.com");
+        var exists = await _sut.EmailExistsAsync("nobody@repo.com", CancellationToken.None);
 
         exists.Should().BeFalse();
     }
@@ -87,11 +88,11 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task EmailExistsAsync_IsCaseSensitive()
     {
-        var client = new Client("Frank", "frank@repo.com", "hash", "Rua F", "910001005");
-        await _sut.AddClientAsync(client);
+        var client = new CreateClientDto("Frank", "frank@repo.com", "hash", "Rua F", "910001005");
+        await _sut.AddClientAsync(client, CancellationToken.None);
 
         // EF Core in-memory provider comparison depends on StringComparison.Ordinal
-        var existsLower = await _sut.EmailExistsAsync("frank@repo.com");
+        var existsLower = await _sut.EmailExistsAsync("frank@repo.com", CancellationToken.None);
         existsLower.Should().BeTrue();
     }
 
@@ -100,10 +101,10 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetByEmailAsync_WhenEmailExists_ReturnsUser()
     {
-        var client = new Client("Grace", "grace@repo.com", "hash", "Rua G", "910001006");
-        await _sut.AddClientAsync(client);
+        var client = new CreateClientDto("Grace", "grace@repo.com", "hash", "Rua G", "910001006");
+        await _sut.AddClientAsync(client, CancellationToken.None);
 
-        var user = await _sut.GetByEmailAsync("grace@repo.com");
+        var user = await _sut.GetByEmailAsync("grace@repo.com", CancellationToken.None);
 
         user.Should().NotBeNull();
         user!.Name.Should().Be("Grace");
@@ -112,7 +113,7 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetByEmailAsync_WhenEmailDoesNotExist_ReturnsNull()
     {
-        var user = await _sut.GetByEmailAsync("missing@repo.com");
+        var user = await _sut.GetByEmailAsync("missing@repo.com", CancellationToken.None);
 
         user.Should().BeNull();
     }

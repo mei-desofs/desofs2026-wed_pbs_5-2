@@ -1,8 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using FluentAssertions;
-using LawyerApp.Domain.Aggregates.UserAggregate.Dto;
+using LawyerApp.Application.DTOS.Users;
 using LawyerApp.Tests.Helpers;
 using Xunit;
 
@@ -42,7 +41,6 @@ public class ClientControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await _client.GetAsync("/api/client/get/all");
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-
     }
 
     // ── POST /api/client/create ──────────────────────────────────────────────
@@ -55,7 +53,6 @@ public class ClientControllerTests : IClassFixture<CustomWebApplicationFactory>
         var response = await _client.PostAsJsonAsync("/api/client/create", dto);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-
     }
 
     [Fact]

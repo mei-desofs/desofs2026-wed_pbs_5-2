@@ -11,6 +11,7 @@
 .cache
 bin/
 obj/
+/LawyerAppData/
 
 # OS files
 .DS_Store
