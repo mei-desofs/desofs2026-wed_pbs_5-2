@@ -193,7 +193,10 @@ jobs:
           ConnectionString__PostgreSQL: "Host=localhost;Port=5432;Database=lawyerapp;Username=lawyerapp;Password=lawyerapp_ci"
 
       - name: Start application
-        run: dotnet run --project LawyerApp/LawyerApp.csproj -c Release --no-build &
+        run: |
+          dotnet run --project LawyerApp/LawyerApp.csproj -c Release --no-build \
+            > /tmp/app.log 2>&1 &
+          echo "App PID: $!"
         env:
           ASPNETCORE_URLS: http://0.0.0.0:5000
           ASPNETCORE_ENVIRONMENT: Development
@@ -203,15 +206,16 @@ jobs:
         run: |
           echo "Waiting for application to start..."
           for i in $(seq 1 30); do
-            STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost:5000 || echo "000")
-            if [ "$STATUS" != "000" ]; then
-              echo "Application is up (HTTP $STATUS)"
+            if nc -z localhost 5000 2>/dev/null; then
+              echo "Application is up on port 5000"
               exit 0
             fi
             echo "Attempt $i/30 — waiting..."
             sleep 3
           done
-          echo "Application did not start within 90 seconds" && exit 1
+          echo "=== Application startup log ==="
+          cat /tmp/app.log || true
+          exit 1
 
       - name: Create ZAP output directory
         run: mkdir -p zap-reports && chmod 777 zap-reports
