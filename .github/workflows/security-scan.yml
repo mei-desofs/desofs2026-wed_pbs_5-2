@@ -228,6 +228,7 @@ jobs:
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://localhost:5000 \
+            -O http://localhost:5000/swagger/v1/swagger.json \
             -r zap-report.html \
             -J zap-report.json
 
