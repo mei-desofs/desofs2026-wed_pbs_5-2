@@ -195,7 +195,7 @@ jobs:
       - name: Start application
         run: dotnet run --project LawyerApp/LawyerApp.csproj -c Release --no-build &
         env:
-          ASPNETCORE_URLS: http://localhost:5000
+          ASPNETCORE_URLS: http://0.0.0.0:5000
           ASPNETCORE_ENVIRONMENT: Development
           ConnectionString__PostgreSQL: "Host=localhost;Port=5432;Database=lawyerapp;Username=lawyerapp;Password=lawyerapp_ci"
 
@@ -214,7 +214,7 @@ jobs:
           echo "Application did not start within 90 seconds" && exit 1
 
       - name: Create ZAP output directory
-        run: mkdir -p zap-reports
+        run: mkdir -p zap-reports && chmod 777 zap-reports
 
       - name: ZAP Baseline Scan
         continue-on-error: true
