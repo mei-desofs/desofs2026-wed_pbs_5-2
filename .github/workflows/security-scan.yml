@@ -219,11 +219,11 @@ jobs:
       - name: ZAP Baseline Scan
         continue-on-error: true
         run: |
-          docker run --add-host=host.docker.internal:host-gateway \
+          docker run --network host \
             -v ${{ github.workspace }}/zap-reports:/zap/wrk:rw \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
-            -t http://host.docker.internal:5000 \
+            -t http://localhost:5000 \
             -r zap-report.html \
             -J zap-report.json
 
