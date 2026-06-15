@@ -27,7 +27,7 @@ namespace LawyerApp.API.Login
         [HttpPost("register")]
         public async Task<IActionResult> Register(CreateClientDto createClientDto,CancellationToken cancellationToken)
         {
-            var result = await _clientService.CreateClientAsync(createClientDto, CancellationToken.None);
+            var result = await _clientService.CreateClientAsync(createClientDto, cancellationToken);
             return HandleResult(result);
         }
         [HttpPost("login")]
