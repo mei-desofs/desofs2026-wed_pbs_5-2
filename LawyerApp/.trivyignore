@@ -16,3 +16,13 @@
 CVE-2026-0861    # Reviewed 2026-05-17: libc-bin / libc6 — glibc 2.36-9+deb12u14 pending Microsoft image rebuild
 CVE-2026-4878    # Reviewed 2026-05-17: libcap2 — 1:2.66-4+deb12u3 pending Microsoft image rebuild
 CVE-2026-29111   # Reviewed 2026-05-17: libsystemd0 / libudev1 — 252.39-1~deb12u2 pending Microsoft image rebuild
+
+# libgnutls30 CVEs disclosed late May / early June 2026. All five fixed
+# in 3.7.9-2+deb12u7 but Microsoft has not yet republished
+# mcr.microsoft.com/dotnet/aspnet:8.0 with the patched package. Tracked
+# for removal when Dependabot proposes the next docker-base rebump PR.
+CVE-2026-33845   # Reviewed 2026-06-03: libgnutls30 CRITICAL — fix 3.7.9-2+deb12u7 pending Microsoft image rebuild
+CVE-2026-42010   # Reviewed 2026-06-03: libgnutls30 CRITICAL — fix 3.7.9-2+deb12u7 pending Microsoft image rebuild
+CVE-2026-33846   # Reviewed 2026-06-03: libgnutls30 HIGH — fix 3.7.9-2+deb12u7 pending Microsoft image rebuild
+CVE-2026-3833    # Reviewed 2026-06-03: libgnutls30 HIGH — fix 3.7.9-2+deb12u7 pending Microsoft image rebuild
+CVE-2026-42009   # Reviewed 2026-06-03: libgnutls30 HIGH — fix 3.7.9-2+deb12u7 pending Microsoft image rebuild
