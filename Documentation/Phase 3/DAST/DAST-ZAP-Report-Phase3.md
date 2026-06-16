@@ -1,4 +1,4 @@
-So # DAST Report — Sprint 2 (Phase 3)
+# DAST Report
 
 ## 1. Introduction
 
