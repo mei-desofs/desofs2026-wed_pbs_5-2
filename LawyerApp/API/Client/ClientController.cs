@@ -1,10 +1,3 @@
-// TODO: REVERT BEFORE MERGING — this file is disabled to unblock DAST (ZAP).
-// This controller duplicates [Route("api/client")] and [HttpGet("get/all")] from
-// API/Aggregates/User/Client/ClientController.cs, causing Swashbuckle to throw a 500
-// on /swagger/v1/swagger.json and preventing ZAP from discovering API endpoints.
-// Additionally, this version is missing [Authorize] on GetAll, which is a security issue.
-// The duplicate should be reviewed and removed by the team.
-#if false
 using LawyerApp.Application.Interfaces.User;
 using LawyerApp.Application.DTOS.Users;
 using Microsoft.AspNetCore.Mvc;
@@ -52,4 +45,3 @@ namespace LawyerApp.API
 
     }
 }
-#endif
