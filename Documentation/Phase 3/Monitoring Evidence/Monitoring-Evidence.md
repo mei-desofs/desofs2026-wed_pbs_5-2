@@ -1,4 +1,4 @@
-# System & User Monitoring Evidence — Sprint 2
+# System & User Monitoring Evidence
 
 ## 1. Overview
 
