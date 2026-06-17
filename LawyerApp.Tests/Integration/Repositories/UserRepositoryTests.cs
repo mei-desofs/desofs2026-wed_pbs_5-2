@@ -29,9 +29,9 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task AddClientAsync_PersistsClientToDatabase()
     {
-        var dto = new CreateClientDto("Alice", "alice@repo.com", "hash", "Rua A", "910001001");
+        var client = new CreateClientDto("Alice", "alice@repo.com", "hash", "Rua A", "910001001");
 
-        await _sut.AddClientAsync(dto, CancellationToken.None);
+        await _sut.AddClientAsync(client, CancellationToken.None);
 
         _context.Users.Should().ContainSingle(u => u.Email == "alice@repo.com");
     }
@@ -39,9 +39,9 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task AddClientAsync_ReturnsPersistedClient()
     {
-        var dto = new CreateClientDto("Bob", "bob@repo.com", "hash", "Rua B", "910001002");
+        var client = new CreateClientDto("Bob", "bob@repo.com", "hash", "Rua B", "910001002");
 
-        var result = await _sut.AddClientAsync(dto, CancellationToken.None);
+        var result = await _sut.AddClientAsync(client, CancellationToken.None);
 
         result.Should().NotBeNull();
         result.Name.Should().Be("Bob");
@@ -69,8 +69,8 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task EmailExistsAsync_WhenEmailExists_ReturnsTrue()
     {
-        var dto = new CreateClientDto("Eve", "eve@repo.com", "hash", "Rua E", "910001004");
-        await _sut.AddClientAsync(dto, CancellationToken.None);
+        var client = new CreateClientDto("Eve", "eve@repo.com", "hash", "Rua E", "910001004");
+        await _sut.AddClientAsync(client, CancellationToken.None);
 
         var exists = await _sut.EmailExistsAsync("eve@repo.com", CancellationToken.None);
 
@@ -88,8 +88,8 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task EmailExistsAsync_IsCaseSensitive()
     {
-        var dto = new CreateClientDto("Frank", "frank@repo.com", "hash", "Rua F", "910001005");
-        await _sut.AddClientAsync(dto, CancellationToken.None);
+        var client = new CreateClientDto("Frank", "frank@repo.com", "hash", "Rua F", "910001005");
+        await _sut.AddClientAsync(client, CancellationToken.None);
 
         // EF Core in-memory provider comparison depends on StringComparison.Ordinal
         var existsLower = await _sut.EmailExistsAsync("frank@repo.com", CancellationToken.None);
@@ -101,8 +101,8 @@ public class UserRepositoryTests : IDisposable
     [Fact]
     public async Task GetByEmailAsync_WhenEmailExists_ReturnsUser()
     {
-        var dto = new CreateClientDto("Grace", "grace@repo.com", "hash", "Rua G", "910001006");
-        await _sut.AddClientAsync(dto, CancellationToken.None);
+        var client = new CreateClientDto("Grace", "grace@repo.com", "hash", "Rua G", "910001006");
+        await _sut.AddClientAsync(client, CancellationToken.None);
 
         var user = await _sut.GetByEmailAsync("grace@repo.com", CancellationToken.None);
 

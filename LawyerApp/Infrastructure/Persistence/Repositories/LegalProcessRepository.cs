@@ -1,4 +1,6 @@
 ﻿using LawyerApp.Domain.Aggregates.LegalProcessAggregate;
+using LawyerApp.Domain.Aggregates.LegalProcessAggregate.Interfaces;
+using LawyerApp.Domain.Aggregates.UserAggregate;
 using Microsoft.EntityFrameworkCore;
 using System.Threading;
 
@@ -37,7 +39,14 @@ namespace LawyerApp.Infrastructure.Persistence.Repositories
         {
             var proc = await _context.LegalProcesses.FirstOrDefaultAsync(p => p.ProcessId == processId, cancellation);
             if (proc == null) return false;
-            return proc.ClientId == userId || proc.LawyerId == userId;
+
+            if (proc.ClientId == userId || proc.LawyerId == userId) return true;
+
+            // Check if user is an assistant assigned to the process's lawyer
+            var assistant = await _context.Users.OfType<LegalAssistant>().FirstOrDefaultAsync(a => a.Id == userId, cancellation);
+            if (assistant != null && assistant.AssignedLawyerId == proc.LawyerId) return true;
+
+            return false;
         }
 
         // ADD

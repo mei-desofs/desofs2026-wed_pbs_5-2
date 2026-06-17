@@ -31,10 +31,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="API\Aggregates\Documents\" />
-    <Folder Include="API\Aggregates\LegalProcess\" />
     <Folder Include="Domain\Aggregates\DocumentAggregate\Dto\" />
     <Folder Include="Domain\Aggregates\LegalProcessAggregate\Dto\" />
+    <Folder Include="Migrations\" />
   </ItemGroup>
 
 </Project>

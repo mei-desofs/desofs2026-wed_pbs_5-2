@@ -16,6 +16,11 @@ namespace LawyerApp.Infrastructure.Persistence.Repositories
         }
 
         // GET 
+        public async Task<IEnumerable<User>> GetAllUsersAsync(CancellationToken cancellation)
+        {
+            return await _context.Users.ToListAsync(cancellation);
+        }
+
         public async Task<IEnumerable<Client>> GetAllClientsAsync(CancellationToken cancellation)
         {
             // Retorna todos os utilizadores (Atenção: em produção pode precisar de paginação)

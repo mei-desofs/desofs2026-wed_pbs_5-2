@@ -13,6 +13,9 @@ public abstract class User
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
     public Roles userRole { get; set; }
 
+    public int FailedLoginAttempts { get; set; } = 0;
+    public DateTime? LockoutEnd { get; set; }
+
     // Construtor protegido para uso do EF Core e classes filhas
     protected User() { }
 
