@@ -148,3 +148,94 @@ jobs:
           path: |
             trivy-results.sarif
             trivy-full-report.json
+
+  # ── DAST — Dynamic Application Security Testing (OWASP ZAP) ─────────────
+  dast:
+    name: DAST — OWASP ZAP Baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lawyerapp
+          POSTGRES_USER: lawyerapp
+          POSTGRES_PASSWORD: lawyerapp_ci
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore dependencies
+        run: dotnet restore LawyerApp/LawyerApp.sln
+
+      - name: Build (Release)
+        run: dotnet build LawyerApp/LawyerApp.sln -c Release --no-restore
+
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Apply database migrations
+        run: dotnet ef database update --project LawyerApp/LawyerApp.csproj --configuration Release --no-build
+        env:
+          ConnectionString__PostgreSQL: "Host=localhost;Port=5432;Database=lawyerapp;Username=lawyerapp;Password=lawyerapp_ci"
+
+      - name: Start application
+        run: |
+          dotnet run --project LawyerApp/LawyerApp.csproj -c Release --no-build --no-launch-profile \
+            > /tmp/app.log 2>&1 &
+          echo "App PID: $!"
+        env:
+          ASPNETCORE_URLS: http://0.0.0.0:5000
+          ASPNETCORE_ENVIRONMENT: Development
+          ConnectionString__PostgreSQL: "Host=localhost;Port=5432;Database=lawyerapp;Username=lawyerapp;Password=lawyerapp_ci"
+
+      - name: Wait for application to be ready
+        run: |
+          echo "Waiting for application to start..."
+          for i in $(seq 1 30); do
+            if nc -z localhost 5000 2>/dev/null; then
+              echo "Application is up on port 5000"
+              exit 0
+            fi
+            echo "Attempt $i/30 — waiting..."
+            sleep 3
+          done
+          echo "=== Application startup log ==="
+          cat /tmp/app.log || true
+          exit 1
+
+      - name: Create ZAP output directory
+        run: mkdir -p zap-reports && chmod 777 zap-reports
+
+      - name: ZAP API Scan
+        continue-on-error: true
+        run: |
+          docker run --network host \
+            -v ${{ github.workspace }}/zap-reports:/zap/wrk:rw \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-api-scan.py \
+            -t http://localhost:5000/swagger/v1/swagger.json \
+            -f openapi \
+            -r zap-report.html \
+            -J zap-report.json
+
+      - name: Upload ZAP DAST report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-zap-report
+          path: zap-reports/
+          retention-days: 30
